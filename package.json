@@ -1,0 +1,99 @@
+{
+  "name": "llm-control-panel",
+  "displayName": "LLM Control Panel",
+  "description": "A VS Code extension to interact with various LLM providers (OpenAI, Gemini, Ollama) through a sidebar panel",
+  "version": "0.0.8",
+  "publisher": "your-publisher-id",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/example/llm-control-panel.git"
+  },
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:llmPanel.openPanel",
+    "onView:llm-panel-view"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "llmPanel.openPanel",
+        "title": "Open LLM Control Panel"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "llm-panel",
+          "title": "LLM Control Panel",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "llm-panel": [
+        {
+          "id": "llm-panel-view",
+          "name": "LLM Control Panel",
+          "type": "webview"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "LLM Control Panel",
+      "properties": {
+        "llmPanel.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API Key for accessing OpenAI services"
+        },
+        "llmPanel.openaiModel": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "OpenAI chat model to use (e.g., gpt-4o-mini, gpt-4o, gpt-3.5-turbo)"
+        },
+        "llmPanel.geminiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Gemini API Key for accessing Google Gemini services"
+        },
+        "llmPanel.geminiModel": {
+          "type": "string",
+          "default": "gemini-1.5-flash",
+          "description": "Gemini model to use (e.g., gemini-1.5-flash, gemini-1.5-pro)"
+        },
+        "llmPanel.ollamaUrl": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Ollama server URL (default: http://localhost:11434)"
+        },
+        "llmPanel.ollamaModel": {
+          "type": "string",
+          "default": "llama3.1",
+          "description": "Ollama model to use (must be pulled locally, e.g., llama3.1, phi3, mistral)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "package": "npm run build && vsce package",
+    "build": "esbuild src/extension.js --bundle --outfile=dist/extension.js --platform=node --external:vscode"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.7",
+    "@types/vscode": "^1.74.0",
+    "esbuild": "^0.25.9",
+    "eslint": "^8.0.1",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.3",
+    "node-fetch": "^2.6.7"
+  }
+}

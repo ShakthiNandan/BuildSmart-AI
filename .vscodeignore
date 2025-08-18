@@ -1,0 +1,9 @@
+node_modules/**
+src/**
+test/**
+.vscode/**
+.eslintignore
+.eslintrc.json
+tsconfig.json
+webpack.config.js
+*.map

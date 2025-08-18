@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src %CSP_SOURCE% https: data:; script-src %CSP_SOURCE%; style-src %CSP_SOURCE%; font-src %CSP_SOURCE%; connect-src https: http:">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>LLM Control Panel</title>
+	<link rel="stylesheet" type="text/css" href="%STYLE_URI%">
+</head>
+<body>
+	<div class="container">
+		<div class="header">
+			<h2>LLM Control Panel</h2>
+		</div>
+
+		<div class="form-group">
+			<label for="provider">LLM Provider:</label>
+			<select id="provider" class="form-control">
+				<option value="openai">OpenAI</option>
+				<option value="gemini">Gemini</option>
+				<option value="ollama">Ollama</option>
+			</select>
+		</div>
+
+		<div class="form-group">
+			<label for="prompt">Prompt:</label>
+			<textarea id="prompt" class="form-control" rows="4" placeholder="Enter your prompt here..."></textarea>
+		</div>
+
+		<div class="button-group">
+			<button id="sendBtn" class="btn btn-primary">Send</button>
+			<button id="configureBtn" class="btn btn-secondary">Configure</button>
+		</div>
+
+		<div class="status">
+			<span id="statusIndicator" class="status-inactive">Inactive</span>
+		</div>
+
+		<div class="output">
+			<label for="output">Response:</label>
+			<div id="output" class="output-area"></div>
+		</div>
+
+		<hr />
+
+		<div class="mcp-section">
+			<div class="mcp-header">
+				<h3>MCP Manager</h3>
+				<div class="mcp-actions">
+					<button id="mcpRefreshBtn" class="btn btn-secondary">Refresh</button>
+					<button id="mcpLogsBtn" class="btn btn-secondary">View Logs</button>
+					<button id="mcpDebugBtn" class="btn btn-secondary">Debug SDK</button>
+				</div>
+			</div>
+			<div id="mcpContainer" class="mcp-container">
+				<div class="loading">No data loaded yet.</div>
+			</div>
+			<div id="mcpLogs" class="mcp-logs hidden"></div>
+		</div>
+	</div>
+
+	<script src="%SCRIPT_URI%"></script>
+</body>
+</html>
