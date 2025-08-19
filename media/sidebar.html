@@ -1,64 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src %CSP_SOURCE% https: data:; script-src %CSP_SOURCE%; style-src %CSP_SOURCE%; font-src %CSP_SOURCE%; connect-src https: http:">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>LLM Control Panel</title>
-	<link rel="stylesheet" type="text/css" href="%STYLE_URI%">
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src %CSP_SOURCE% https: data:; script-src %CSP_SOURCE%; style-src %CSP_SOURCE%; font-src %CSP_SOURCE%; connect-src https: http:">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Control Panel</title>
+    <link rel="stylesheet" type="text/css" href="%STYLE_URI%">
 </head>
 <body>
-	<div class="container">
-		<div class="header">
-			<h2>LLM Control Panel</h2>
-		</div>
+    <div class="container">
+        <div class="header">
+            <h2>LLM Control Panel</h2>
+        </div>
 
-		<div class="form-group">
-			<label for="provider">LLM Provider:</label>
-			<select id="provider" class="form-control">
-				<option value="openai">OpenAI</option>
-				<option value="gemini">Gemini</option>
-				<option value="ollama">Ollama</option>
-			</select>
-		</div>
+        <div class="form-group">
+            <label for="provider">LLM Provider:</label>
+            <select id="provider" class="form-control">
+                <option value="openai">OpenAI</option>
+                <option value="gemini">Gemini</option>
+                <option value="ollama">Ollama</option>
+            </select>
+        </div>
 
-		<div class="form-group">
-			<label for="prompt">Prompt:</label>
-			<textarea id="prompt" class="form-control" rows="4" placeholder="Enter your prompt here..."></textarea>
-		</div>
+        <div class="form-group">
+            <label for="prompt">Prompt:</label>
+            <textarea id="prompt" class="form-control" rows="4" placeholder="Enter your prompt here..."></textarea>
+        </div>
 
-		<div class="button-group">
-			<button id="sendBtn" class="btn btn-primary">Send</button>
-			<button id="configureBtn" class="btn btn-secondary">Configure</button>
-		</div>
+        <div class="button-group">
+            <button id="sendBtn" class="btn btn-primary">Send</button>
+            <button id="configureBtn" class="btn btn-secondary">Configure</button>
+        </div>
 
-		<div class="status">
-			<span id="statusIndicator" class="status-inactive">Inactive</span>
-		</div>
+        <div class="status">
+            <span id="statusIndicator" class="status-inactive">Inactive</span>
+        </div>
 
-		<div class="output">
-			<label for="output">Response:</label>
-			<div id="output" class="output-area"></div>
-		</div>
+        <div class="output">
+            <label for="output">Response:</label>
+            <div id="output" class="output-area"></div>
+        </div>
 
-		<hr />
+        <div class="section">
+            <h3>Plan Creation</h3>
+            <p style="font-size: 12px; margin: 0 0 12px 0; color: var(--vscode-descriptionForeground);">
+                Enter your plan description in the prompt field above, then click here to create a structured document
+            </p>
+            <button id="createPlanBtn" class="btn btn-primary">Create Plan Document</button>
+            <div id="planStatus"></div>
+        </div>
 
-		<div class="mcp-section">
-			<div class="mcp-header">
-				<h3>MCP Manager</h3>
-				<div class="mcp-actions">
-					<button id="mcpRefreshBtn" class="btn btn-secondary">Refresh</button>
-					<button id="mcpLogsBtn" class="btn btn-secondary">View Logs</button>
-					<button id="mcpDebugBtn" class="btn btn-secondary">Debug SDK</button>
-				</div>
-			</div>
-			<div id="mcpContainer" class="mcp-container">
-				<div class="loading">No data loaded yet.</div>
-			</div>
-			<div id="mcpLogs" class="mcp-logs hidden"></div>
-		</div>
-	</div>
+        <div class="section">
+            <h3>File Writer</h3>
+            <div class="form-row">
+                <input id="filePath" class="form-control" placeholder="relative/or/absolute/path.md" />
+                <select id="fileMode" class="form-control">
+                    <option value="create">Create</option>
+                    <option value="overwrite">Overwrite</option>
+                    <option value="append">Append</option>
+                </select>
+            </div>
+            <textarea id="fileContent" class="form-control" rows="6" placeholder="Content to write..."></textarea>
+            <div class="button-group">
+                <button id="saveFileBtn" class="btn btn-primary">Save File</button>
+                <button id="showLogsBtn" class="btn btn-secondary">Show Logs</button>
+                <button id="testBtn" class="btn btn-secondary">Test Connection</button>
+            </div>
+            <div id="fileStatus"></div>
+            <pre id="fileLogs" class="hidden"></pre>
+        </div>
+    </div>
 
-	<script src="%SCRIPT_URI%"></script>
+    <script src="%SCRIPT_URI%"></script>
 </body>
 </html>

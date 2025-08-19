@@ -1,8 +1,8 @@
 {
   "name": "llm-control-panel",
   "displayName": "LLM Control Panel",
-  "description": "A VS Code extension to interact with various LLM providers (OpenAI, Gemini, Ollama) through a sidebar panel",
-  "version": "0.0.8",
+  "description": "A VS Code extension to interact with various LLM providers (OpenAI, Gemini, Ollama) and MCP servers for plan document creation",
+  "version": "0.1.6",
   "publisher": "your-publisher-id",
   "repository": {
     "type": "git",
@@ -12,7 +12,18 @@
     "vscode": "^1.74.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "AI",
+    "Planning"
+  ],
+  "keywords": [
+    "llm",
+    "ai",
+    "planning",
+    "mcp",
+    "openai",
+    "gemini",
+    "ollama"
   ],
   "activationEvents": [
     "onCommand:llmPanel.openPanel",
@@ -93,7 +104,6 @@
     "vsce": "^2.15.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.3",
     "node-fetch": "^2.6.7"
   }
 }
