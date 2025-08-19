@@ -82,6 +82,10 @@ class LLMPanelProvider {
                         console.log('Test connection received:', message.message);
                         webview.postMessage({ command: 'testResponse', message: 'Extension is working! Received: ' + message.message });
                         break;
+                    case 'openCustomPromptSettings':
+                        console.log('Opening custom prompt settings...');
+                        vscode.commands.executeCommand('workbench.action.openSettings', 'llmPanel.customProjectPrompt');
+                        break;
                     default:
                         console.log(`Unknown command: ${message.command}`);
                 }
@@ -135,23 +139,16 @@ class LLMPanelProvider {
             if (!planDescription) return;
 
             // Create enhanced prompt for plan generation
-            const enhancedPrompt = `Create a comprehensive ${planType.toLowerCase()} document for: ${planDescription}
+            const config = vscode.workspace.getConfiguration('llmPanel');
+            const customPromptTemplate = config.get('customProjectPrompt');
+            
+            // Replace placeholders in the custom prompt template
+            const enhancedPrompt = customPromptTemplate
+                .replace(/{planType}/g, planType.toLowerCase())
+                .replace(/{description}/g, planDescription);
 
-Please structure the plan as a detailed markdown document with:
-
-1. **Executive Summary** - Brief overview and objectives
-2. **Project Scope** - What's included and excluded
-3. **Timeline & Milestones** - Key phases with estimated durations
-4. **Detailed Tasks** - Broken down by phase with:
-   - Task descriptions
-   - Dependencies
-   - Resource requirements
-   - Success criteria
-5. **Risk Assessment** - Potential challenges and mitigation strategies
-6. **Resource Requirements** - Tools, technologies, personnel needed
-7. **Success Metrics** - How to measure completion and success
-
-Format with clear markdown headers, bullet points, and actionable items.`;
+            this._log(`Using custom prompt template for ${planType}`);
+            this._log(`Enhanced prompt: ${enhancedPrompt.substring(0, 200)}...`);
 
             // Generate plan content with LLM
             const planContent = await this._callLLM(provider, enhancedPrompt);

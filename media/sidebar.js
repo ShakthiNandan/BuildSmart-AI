@@ -20,6 +20,7 @@
     const testBtn = document.getElementById('testBtn');
     const createPlanBtn = document.getElementById('createPlanBtn');
     const planStatus = document.getElementById('planStatus');
+    const configurePromptBtn = document.getElementById('configurePromptBtn');
 
     // Event listeners
     sendBtn.addEventListener('click', handleSendPrompt);
@@ -28,6 +29,13 @@
     
     if (createPlanBtn) {
         createPlanBtn.addEventListener('click', handleCreatePlan);
+    }
+
+    if (configurePromptBtn) {
+        configurePromptBtn.addEventListener('click', () => {
+            console.log('Configure prompt button clicked');
+            vscode.postMessage({ command: 'openCustomPromptSettings' });
+        });
     }
     if (saveFileBtn) {
         saveFileBtn.addEventListener('click', () => {

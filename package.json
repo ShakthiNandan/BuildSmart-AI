@@ -2,11 +2,11 @@
   "name": "llm-control-panel",
   "displayName": "LLM Control Panel",
   "description": "A VS Code extension to interact with various LLM providers (OpenAI, Gemini, Ollama) and MCP servers for plan document creation",
-  "version": "0.1.6",
-  "publisher": "your-publisher-id",
+  "version": "0.1.7",
+  "publisher": "ShakthiNandan",
   "repository": {
     "type": "git",
-    "url": "https://github.com/example/llm-control-panel.git"
+    "url": "https://github.com/ShakthiNandan/BuildSmart-AI"
   },
   "engines": {
     "vscode": "^1.74.0"
@@ -87,6 +87,11 @@
           "type": "string",
           "default": "llama3.1",
           "description": "Ollama model to use (must be pulled locally, e.g., llama3.1, phi3, mistral)"
+        },
+        "llmPanel.customProjectPrompt": {
+          "type": "string",
+          "default": "Create a comprehensive project plan document with:\n\n1. **Executive Summary** - Brief overview and objectives\n2. **Project Scope** - What's included and excluded\n3. **Timeline & Milestones** - Key phases with estimated durations\n4. **Detailed Tasks** - Broken down by phase with task descriptions, dependencies, resource requirements, and success criteria\n5. **Risk Assessment** - Potential challenges and mitigation strategies\n6. **Resource Requirements** - Tools, technologies, personnel needed\n7. **Success Metrics** - How to measure completion and success\n\nFormat with clear markdown headers, bullet points, and actionable items.",
+          "description": "Custom prompt template for project document creation. Use {planType} and {description} as placeholders."
         }
       }
     }
