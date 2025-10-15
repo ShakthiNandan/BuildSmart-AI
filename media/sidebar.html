@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src %CSP_SOURCE% https: data:; script-src %CSP_SOURCE%; style-src %CSP_SOURCE%; font-src %CSP_SOURCE%; connect-src https: http:">
+
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src %CSP_SOURCE% https: data:; script-src %CSP_SOURCE%; style-src %CSP_SOURCE%; font-src %CSP_SOURCE%; connect-src https: http: localhost:* 127.0.0.1:* ws: wss:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLM Control Panel</title>
     <link rel="stylesheet" type="text/css" href="%STYLE_URI%">
@@ -20,6 +21,13 @@
                 <option value="gemini">Gemini</option>
                 <option value="ollama">Ollama</option>
             </select>
+            <div class="status-row">
+                <span id="statusIndicator" class="status-inactive">Inactive</span>
+                <button id="configureBtn" class="btn btn-secondary">Configure</button>
+            </div>
+            <p style="font-size: 11px; margin: 8px 0 0 0; color: var(--vscode-descriptionForeground); opacity: 0.8;">
+                Note: This provider will be used for all operations in the extension.
+            </p>
         </div>
 
         <div class="form-group">
@@ -29,11 +37,6 @@
 
         <div class="button-group">
             <button id="sendBtn" class="btn btn-primary">Send</button>
-            <button id="configureBtn" class="btn btn-secondary">Configure</button>
-        </div>
-
-        <div class="status">
-            <span id="statusIndicator" class="status-inactive">Inactive</span>
         </div>
 
         <div class="output">
@@ -51,6 +54,109 @@
                 <button id="configurePromptBtn" class="btn btn-secondary">Configure Prompt</button>
             </div>
             <div id="planStatus"></div>
+        </div>
+
+        <!-- Project Charter System -->
+        <div class="section project-charter-section">
+            <h3>🎯 Project Charter System</h3>
+            
+            <!-- Project Complexity Selection -->
+            <div class="form-group">
+                <label for="projectComplexity">Project Complexity:</label>
+                <select id="projectComplexity" class="form-control">
+                    <option value="lite">Lite - Simple projects (3-6 months)</option>
+                    <option value="advanced">Advanced - Complex projects (6-12 months)</option>
+                    <option value="pro">Pro - Enterprise projects (12+ months)</option>
+                </select>
+            </div>
+
+            <!-- Project Charter Generation -->
+            <div class="form-group">
+                <label for="projectRequirements">Project Requirements:</label>
+                <textarea id="projectRequirements" class="form-control" rows="4" placeholder="Describe your project requirements, goals, and constraints..."></textarea>
+            </div>
+
+            <div class="button-group">
+                <button id="generateCharterBtn" class="btn btn-primary">Generate Project Charter</button>
+                <button id="generatePRDBtn" class="btn btn-secondary">Generate PRD</button>
+            </div>
+
+            <!-- Version Control -->
+            <div class="version-control">
+                <h4>📊 Version Control</h4>
+                <div class="button-group">
+                    <button id="viewVersionsBtn" class="btn btn-secondary">View Versions</button>
+                    <button id="createVersionBtn" class="btn btn-secondary">Create Version</button>
+                </div>
+                <div id="versionDiffViewer" class="version-diff-viewer hidden">
+                    <h5>Version Diff Viewer</h5>
+                    <div id="diffContent" class="diff-content"></div>
+                </div>
+                <div class="button-group">
+                    <button id="exportProjectBtn" class="btn btn-secondary">Export Project</button>
+                    <button id="importProjectBtn" class="btn btn-secondary">Import Project</button>
+                </div>
+                <div id="versionHistory" class="version-history hidden"></div>
+            </div>
+
+            <!-- 10-Step Workflow -->
+            <div class="workflow-section">
+                <h4>🔄 10-Step Artifact Workflow</h4>
+                <div class="workflow-steps">
+                    <div class="workflow-step" data-step="0">
+                        <span class="step-number">1</span>
+                        <span class="step-name">Project Charter</span>
+                        <button class="btn btn-small generate-artifact-btn" data-step="0">Generate</button>
+                    </div>
+                    <div class="workflow-step" data-step="1">
+                        <span class="step-number">2</span>
+                        <span class="step-name">Requirements Analysis</span>
+                        <button class="btn btn-small generate-artifact-btn" data-step="1">Generate</button>
+                    </div>
+                    <div class="workflow-step" data-step="2">
+                        <span class="step-number">3</span>
+                        <span class="step-name">Technical Architecture</span>
+                        <button class="btn btn-small generate-artifact-btn" data-step="2">Generate</button>
+                    </div>
+                    <div class="workflow-step" data-step="3">
+                        <span class="step-number">4</span>
+                        <span class="step-name">UX Design</span>
+                        <button class="btn btn-small generate-artifact-btn" data-step="3">Generate</button>
+                    </div>
+                    <div class="workflow-step" data-step="4">
+                        <span class="step-number">5</span>
+                        <span class="step-name">Development Plan</span>
+                        <button class="btn btn-small generate-artifact-btn" data-step="4">Generate</button>
+                    </div>
+                    <div class="workflow-step" data-step="5">
+                        <span class="step-number">6</span>
+                        <span class="step-name">Testing Strategy</span>
+                        <button class="btn btn-small generate-artifact-btn" data-step="5">Generate</button>
+                    </div>
+                    <div class="workflow-step" data-step="6">
+                        <span class="step-number">7</span>
+                        <span class="step-name">Deployment Plan</span>
+                        <button class="btn btn-small generate-artifact-btn" data-step="6">Generate</button>
+                    </div>
+                    <div class="workflow-step" data-step="7">
+                        <span class="step-number">8</span>
+                        <span class="step-name">Security Framework</span>
+                        <button class="btn btn-small generate-artifact-btn" data-step="7">Generate</button>
+                    </div>
+                    <div class="workflow-step" data-step="8">
+                        <span class="step-number">9</span>
+                        <span class="step-name">Documentation</span>
+                        <button class="btn btn-small generate-artifact-btn" data-step="8">Generate</button>
+                    </div>
+                    <div class="workflow-step" data-step="9">
+                        <span class="step-number">10</span>
+                        <span class="step-name">Project Handover</span>
+                        <button class="btn btn-small generate-artifact-btn" data-step="9">Generate</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="charterStatus"></div>
         </div>
 
         <div class="section">
