@@ -42,6 +42,22 @@
     const promptStepContent = document.getElementById('promptStepContent');
     const clearPromptBtn = document.getElementById('clearPromptBtn');
 
+    
+    // Project Charter System Elements
+    const projectComplexitySelect = document.getElementById('projectComplexity');
+    const projectRequirementsTextarea = document.getElementById('projectRequirements');
+    const generateCharterBtn = document.getElementById('generateCharterBtn');
+    const generatePRDBtn = document.getElementById('generatePRDBtn');
+    const viewVersionsBtn = document.getElementById('viewVersionsBtn');
+    const createVersionBtn = document.getElementById('createVersionBtn');
+    const versionHistory = document.getElementById('versionHistory');
+    const charterStatus = document.getElementById('charterStatus');
+    const generateArtifactBtns = document.querySelectorAll('.generate-artifact-btn');
+    const exportProjectBtn = document.getElementById('exportProjectBtn');
+    const importProjectBtn = document.getElementById('importProjectBtn');
+    const versionDiffViewer = document.getElementById('versionDiffViewer');
+    const diffContent = document.getElementById('diffContent');
+
     // Event listeners
     sendBtn.addEventListener('click', handleSendPrompt);
     configureBtn.addEventListener('click', handleConfigure);
@@ -62,6 +78,136 @@
         clearPromptBtn.addEventListener('click', () => {
             if (promptStepSection) promptStepSection.style.display = 'none';
             if (promptStepContent) promptStepContent.innerHTML = '<div class="prompt-step-empty">No prompt generated yet. Click "Convert to Prompt" on a bullet point in a Markdown file.</div>';
+        });
+    }
+
+    // Project Charter System Event Listeners
+    if (projectComplexitySelect) {
+        projectComplexitySelect.addEventListener('change', (e) => {
+            vscode.postMessage({ 
+                command: 'setProjectComplexity', 
+                complexity: e.target.value 
+            });
+        });
+    }
+
+    if (generateCharterBtn) {
+        generateCharterBtn.addEventListener('click', () => {
+            const requirements = projectRequirementsTextarea?.value.trim();
+            const complexity = projectComplexitySelect?.value || 'lite';
+            const provider = providerSelect?.value || 'openai';
+            
+            if (!requirements) {
+                showCharterStatus('Please enter project requirements', 'error');
+                return;
+            }
+            
+            showCharterStatus('Generating project charter...', 'loading');
+            vscode.postMessage({
+                command: 'generateProjectCharter',
+                complexity: complexity,
+                requirements: requirements,
+                provider: provider
+            });
+        });
+    }
+
+    if (generatePRDBtn) {
+        generatePRDBtn.addEventListener('click', () => {
+            const requirements = projectRequirementsTextarea?.value.trim();
+            const complexity = projectComplexitySelect?.value || 'lite';
+            const provider = providerSelect?.value || 'openai';
+            
+            if (!requirements) {
+                showCharterStatus('Please enter project requirements', 'error');
+                return;
+            }
+            
+            showCharterStatus('Generating PRD...', 'loading');
+            vscode.postMessage({
+                command: 'generatePRD',
+                complexity: complexity,
+                projectData: { requirements: requirements },
+                provider: provider
+            });
+        });
+    }
+
+    if (viewVersionsBtn) {
+        viewVersionsBtn.addEventListener('click', () => {
+            vscode.postMessage({ command: 'getVersionHistory' });
+        });
+    }
+
+    if (createVersionBtn) {
+        createVersionBtn.addEventListener('click', () => {
+            const description = prompt('Enter version description:', 'Manual version');
+            if (description) {
+                vscode.postMessage({
+                    command: 'createVersion',
+                    changes: { type: 'manual', description: description },
+                    description: description
+                });
+            }
+        });
+    }
+
+    // Workflow artifact generation
+    generateArtifactBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const step = parseInt(e.target.dataset.step);
+            const requirements = projectRequirementsTextarea?.value.trim();
+            const provider = providerSelect?.value || 'openai';
+            
+            if (!requirements) {
+                showCharterStatus('Please enter project requirements first', 'error');
+                return;
+            }
+            
+            showCharterStatus(`Generating artifact for step ${step + 1}...`, 'loading');
+            vscode.postMessage({
+                command: 'generateArtifacts',
+                workflowStep: step,
+                projectData: { requirements: requirements },
+                provider: provider
+            });
+        });
+    });
+
+    // Export/Import functionality
+    if (exportProjectBtn) {
+        exportProjectBtn.addEventListener('click', () => {
+            showCharterStatus('Exporting project data...', 'loading');
+            vscode.postMessage({ command: 'exportProjectData' });
+        });
+    }
+
+    if (importProjectBtn) {
+        importProjectBtn.addEventListener('click', () => {
+            // Create file input for import
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            showCharterStatus('Importing project data...', 'loading');
+                            vscode.postMessage({
+                                command: 'importProjectData',
+                                data: data
+                            });
+                        } catch (error) {
+                            showCharterStatus('Invalid JSON file', 'error');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
         });
     }
 
@@ -378,6 +524,39 @@
                 break;
             case 'copilotPromptCreated':
                 handleCopilotPromptCreated(message.success, message.bulletPoint, message.response, message.error, message.lineNumber);
+                break;
+            case 'projectComplexitySet':
+                console.log('Project complexity set to:', message.complexity);
+                break;
+            case 'charterGenerated':
+                handleCharterGenerated(message.content, message.versionId, message.error);
+                break;
+            case 'prdGenerated':
+                handlePRDGenerated(message.content, message.versionId, message.error);
+                break;
+            case 'versionCreated':
+                handleVersionCreated(message.version);
+                break;
+            case 'versionHistory':
+                handleVersionHistory(message.versions, message.currentVersion);
+                break;
+            case 'versionRestored':
+                handleVersionRestored(message.version);
+                break;
+            case 'artifactGenerated':
+                handleArtifactGenerated(message.artifact, message.error);
+                break;
+            case 'projectState':
+                handleProjectState(message.state);
+                break;
+            case 'projectDataExported':
+                handleProjectDataExported(message.fileName, message.path, message.error);
+                break;
+            case 'projectDataImported':
+                handleProjectDataImported(message.success, message.error);
+                break;
+            case 'versionDiff':
+                handleVersionDiff(message.versionId, message.diff, message.version, message.error);
                 break;
         }
     });

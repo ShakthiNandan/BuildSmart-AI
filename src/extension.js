@@ -283,6 +283,9 @@ class LLMPanelProvider {
         // Load and send project state
         this._getProjectState();
         
+        // Load and send project state
+        this._getProjectState();
+        
         // Test logging
         this._log('Webview initialized and ready for communication');
         console.log('Webview is ready and extension is connected!');
