@@ -2,7 +2,7 @@
   "name": "llm-control-panel",
   "displayName": "LLM Control Panel",
   "description": "A VS Code extension with adaptive project charter Q&A system, AI-driven PRD generation, version control, and 10-step artifact workflow for comprehensive project management",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "ShakthiNandan",
   "repository": {
     "type": "git",
@@ -27,7 +27,8 @@
   ],
   "activationEvents": [
     "onCommand:llmPanel.openPanel",
-    "onView:llm-panel-view"
+    "onView:llm-panel-view",
+    "onLanguage:markdown"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -35,6 +36,10 @@
       {
         "command": "llmPanel.openPanel",
         "title": "Open LLM Control Panel"
+      },
+      {
+        "command": "extension.convertToPrompt",
+        "title": "Convert to Prompt"
       }
     ],
     "viewsContainers": {

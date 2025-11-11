@@ -14,6 +14,15 @@
             <h2>LLM Control Panel</h2>
         </div>
 
+        <!-- Prompt for the Step Section -->
+        <div class="section prompt-step-section" id="promptStepSection" style="display: none;">
+            <h3>📝 Prompt for the Step</h3>
+            <div id="promptStepContent" class="prompt-step-content">
+                <div class="prompt-step-empty">No prompt generated yet. Click "Convert to Prompt" on a bullet point in a Markdown file.</div>
+            </div>
+            <button id="clearPromptBtn" class="btn btn-secondary btn-small" style="margin-top: 8px;">Clear</button>
+        </div>
+
         <div class="form-group">
             <label for="provider">LLM Provider:</label>
             <select id="provider" class="form-control">

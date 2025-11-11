@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const fetch = require('node-fetch');
 const fs = require('fs');
+const MarkdownCodeLensProvider = require('./providers/markdownCodeLensProvider');
 
 function activate(context) {
     console.log('LLM Control Panel extension is now active!');
@@ -19,8 +20,103 @@ function activate(context) {
             provider.reveal();
         })
     );
+
+    // Register Markdown CodeLens provider
+    const codeLensProvider = new MarkdownCodeLensProvider();
+    context.subscriptions.push(
+        vscode.languages.registerCodeLensProvider(
+            { language: 'markdown', scheme: 'file' },
+            codeLensProvider
+        )
+    );
+
+    // Command to convert bullet point to prompt using Ollama
+    context.subscriptions.push(
+        vscode.commands.registerCommand('extension.convertToPrompt', async (bulletText, lineNumber) => {
+            await convertBulletToPrompt(bulletText, lineNumber, provider);
+        })
+    );
     
     console.log('LLM Control Panel extension activated successfully');
+}
+
+/**
+ * Convert a bullet point to a prompt by sending it to Ollama
+ * @param {string} bulletText - The bullet point text
+ * @param {number} lineNumber - The line number of the bullet point
+ * @param {LLMPanelProvider} panelProvider - The LLM panel provider instance
+ */
+async function convertBulletToPrompt(bulletText, lineNumber, panelProvider) {
+    try {
+        vscode.window.showInformationMessage(`Converting bullet point: "${bulletText}"`);
+        
+        // Get Ollama configuration
+        const config = vscode.workspace.getConfiguration('llmPanel');
+        const ollamaUrl = config.get('ollamaUrl', 'http://localhost:11434');
+        const ollamaModel = config.get('ollamaModel', 'gemma3-tools:12b');
+        
+        // Prepare the request to Ollama
+        const requestBody = {
+            model: ollamaModel,
+            prompt: bulletText,
+            stream: false
+        };
+
+        // Call Ollama API
+        const response = await fetch(`${ollamaUrl}/api/generate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ollama API returned status ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        
+        // Check if response contains the expected data
+        if (!result.response) {
+            throw new Error('Invalid response from Ollama API');
+        }
+
+        // Ensure the webview is visible before posting the message
+        if (panelProvider && typeof panelProvider.ensureVisible === 'function') {
+            await panelProvider.ensureVisible();
+        }
+
+        // Success - notify the webview
+        if (panelProvider._view && panelProvider._view.webview) {
+            panelProvider._view.webview.postMessage({
+                command: 'copilotPromptCreated',
+                success: true,
+                bulletPoint: bulletText,
+                response: result.response,
+                lineNumber: lineNumber
+            });
+        }
+
+        vscode.window.showInformationMessage(`✓ Successfully processed: "${bulletText}"`);
+        
+    } catch (error) {
+        // Error - notify the webview
+        if (panelProvider && typeof panelProvider.ensureVisible === 'function') {
+            await panelProvider.ensureVisible();
+        }
+        if (panelProvider._view && panelProvider._view.webview) {
+            panelProvider._view.webview.postMessage({
+                command: 'copilotPromptCreated',
+                success: false,
+                bulletPoint: bulletText,
+                error: error.message,
+                lineNumber: lineNumber
+            });
+        }
+
+        vscode.window.showErrorMessage(`Failed to process bullet point: ${error.message}`);
+    }
 }
 
 class LLMPanelProvider {
@@ -54,6 +150,33 @@ class LLMPanelProvider {
         
         // State persistence
         this._loadPersistedState();
+    }
+
+    // Reveal the LLM panel view container
+    async reveal() {
+        try {
+            // Reveal the custom view container in the Activity Bar
+            await vscode.commands.executeCommand('workbench.view.extension.llm-panel');
+        } catch (e) {
+            this._log(`Failed to reveal panel: ${e?.message || e}`);
+        }
+    }
+
+    // Ensure the webview is created and visible before posting messages
+    async ensureVisible(timeoutMs = 1500) {
+        // Try to reveal the container
+        await this.reveal();
+
+        // If already available, return early
+        if (this._view && this._view.webview) {
+            return;
+        }
+
+        const start = Date.now();
+        // Poll briefly until resolveWebviewView runs
+        while ((!this._view || !this._view.webview) && (Date.now() - start) < timeoutMs) {
+            await new Promise(r => setTimeout(r, 100));
+        }
     }
 
     resolveWebviewView(webviewView) {

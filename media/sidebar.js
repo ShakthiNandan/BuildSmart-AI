@@ -36,6 +36,11 @@
     const importProjectBtn = document.getElementById('importProjectBtn');
     const versionDiffViewer = document.getElementById('versionDiffViewer');
     const diffContent = document.getElementById('diffContent');
+    
+    // Prompt for the Step elements
+    const promptStepSection = document.getElementById('promptStepSection');
+    const promptStepContent = document.getElementById('promptStepContent');
+    const clearPromptBtn = document.getElementById('clearPromptBtn');
 
     // Event listeners
     sendBtn.addEventListener('click', handleSendPrompt);
@@ -50,6 +55,13 @@
         configurePromptBtn.addEventListener('click', () => {
             console.log('Configure prompt button clicked');
             vscode.postMessage({ command: 'openCustomPromptSettings' });
+        });
+    }
+
+    if (clearPromptBtn) {
+        clearPromptBtn.addEventListener('click', () => {
+            if (promptStepSection) promptStepSection.style.display = 'none';
+            if (promptStepContent) promptStepContent.innerHTML = '<div class="prompt-step-empty">No prompt generated yet. Click "Convert to Prompt" on a bullet point in a Markdown file.</div>';
         });
     }
 
@@ -365,7 +377,7 @@
                 handleVersionDiff(message.versionId, message.diff, message.version, message.error);
                 break;
             case 'copilotPromptCreated':
-                handleCopilotPromptCreated(message.success, message.bulletPoint, message.error);
+                handleCopilotPromptCreated(message.success, message.bulletPoint, message.response, message.error, message.lineNumber);
                 break;
         }
     });
@@ -750,38 +762,55 @@
         versionDiffViewer.classList.remove('hidden');
     }
 
-    function handleCopilotPromptCreated(success, bulletPoint, error) {
+    function handleCopilotPromptCreated(success, bulletPoint, response, error, lineNumber) {
+        if (!promptStepSection || !promptStepContent) return;
+        
+        // Show the section
+        promptStepSection.style.display = 'block';
+        
         if (success) {
-            // Show success message
-            if (outputArea) {
-                const successMsg = document.createElement('div');
-                successMsg.className = 'copilot-success';
-                successMsg.innerHTML = `✅ Copilot prompt created for: "${bulletPoint}"`;
-                outputArea.appendChild(successMsg);
-                
-                // Remove the success message after 5 seconds
-                setTimeout(() => {
-                    if (successMsg.parentNode) {
-                        successMsg.parentNode.removeChild(successMsg);
-                    }
-                }, 5000);
-            }
+            // Display the prompt result
+            const timestamp = new Date().toLocaleTimeString();
+            const html = `
+                <div class="prompt-step-result success">
+                    <div class="prompt-step-header">
+                        <span class="prompt-step-status">✅ Success</span>
+                        <span class="prompt-step-time">${timestamp}</span>
+                    </div>
+                    <div class="prompt-step-bullet">
+                        <strong>Bullet Point:</strong> ${escapeHtml(bulletPoint)}
+                        ${lineNumber ? `<span class="prompt-step-line"> (Line ${lineNumber})</span>` : ''}
+                    </div>
+                    <div class="prompt-step-response">
+                        <strong>LLM Response:</strong>
+                        <div class="prompt-step-response-content">${escapeHtml(response || 'No response content')}</div>
+                    </div>
+                </div>
+            `;
+            promptStepContent.innerHTML = html;
         } else {
-            // Show error message
-            if (outputArea) {
-                const errorMsg = document.createElement('div');
-                errorMsg.className = 'copilot-error';
-                errorMsg.innerHTML = `❌ Failed to create Copilot prompt: ${error}`;
-                outputArea.appendChild(errorMsg);
-                
-                // Remove the error message after 5 seconds
-                setTimeout(() => {
-                    if (errorMsg.parentNode) {
-                        errorMsg.parentNode.removeChild(errorMsg);
-                    }
-                }, 5000);
-            }
+            // Display the error
+            const timestamp = new Date().toLocaleTimeString();
+            const html = `
+                <div class="prompt-step-result error">
+                    <div class="prompt-step-header">
+                        <span class="prompt-step-status">❌ Error</span>
+                        <span class="prompt-step-time">${timestamp}</span>
+                    </div>
+                    <div class="prompt-step-bullet">
+                        <strong>Bullet Point:</strong> ${escapeHtml(bulletPoint)}
+                        ${lineNumber ? `<span class="prompt-step-line"> (Line ${lineNumber})</span>` : ''}
+                    </div>
+                    <div class="prompt-step-error">
+                        <strong>Error:</strong> ${escapeHtml(error || 'Unknown error')}
+                    </div>
+                </div>
+            `;
+            promptStepContent.innerHTML = html;
         }
+        
+        // Scroll the section into view
+        promptStepSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function renderMcp(data) {
