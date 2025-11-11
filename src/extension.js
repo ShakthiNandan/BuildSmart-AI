@@ -136,7 +136,9 @@ class LLMPanelProvider {
             versions: new Map(),
             projectComplexity: 'lite', // lite, advanced, pro
             artifacts: new Map(),
-            workflowStep: 0
+            workflowStep: 0,
+            workflowSteps: [], // Dynamically generated workflow steps
+            requirements: '' // Store project requirements for refine/expand
         };
         
         // Ensure Maps are always initialized
@@ -254,8 +256,23 @@ class LLMPanelProvider {
                     case 'generateArtifacts':
                         await this._generateArtifacts(message.workflowStep, message.projectData, message.provider);
                         break;
+                    case 'generateWorkflowSteps':
+                        await this._generateWorkflowSteps(message.complexity, message.requirements, message.provider);
+                        break;
+                    case 'refineCharter':
+                        await this._refineCharter(message.complexity, message.requirements, message.provider);
+                        break;
+                    case 'expandCharter':
+                        await this._expandCharter(message.complexity, message.requirements, message.provider);
+                        break;
                     case 'getProjectState':
                         await this._getProjectState();
+                        break;
+                    case 'getTheme':
+                        await this._getTheme();
+                        break;
+                    case 'setTheme':
+                        await this._setTheme(message.theme);
                         break;
                     case 'exportProjectData':
                         await this._exportProjectData();
@@ -299,8 +316,10 @@ class LLMPanelProvider {
             if (savedState) {
                 // Restore the basic state
                 this._projectState.currentVersion = savedState.currentVersion;
-                this._projectState.projectComplexity = savedState.projectComplexity;
-                this._projectState.workflowStep = savedState.workflowStep;
+                this._projectState.projectComplexity = savedState.projectComplexity || 'lite';
+                this._projectState.workflowStep = savedState.workflowStep || 0;
+                this._projectState.workflowSteps = savedState.workflowSteps || [];
+                this._projectState.requirements = savedState.requirements || '';
                 
                 // Restore versions Map
                 if (savedState.versions) {
@@ -327,6 +346,8 @@ class LLMPanelProvider {
                 currentVersion: this._projectState.currentVersion,
                 projectComplexity: this._projectState.projectComplexity,
                 workflowStep: this._projectState.workflowStep,
+                workflowSteps: this._projectState.workflowSteps || [],
+                requirements: this._projectState.requirements || '',
                 versions: Array.from(this._projectState.versions.entries()),
                 artifacts: Array.from(this._projectState.artifacts.entries())
             };
@@ -378,6 +399,11 @@ class LLMPanelProvider {
                 provider = config.get('defaultProvider') || 'openai';
             }
             
+            // Store requirements in project state
+            this._projectState.requirements = requirements;
+            this._projectState.projectComplexity = complexity;
+            await this._savePersistedState();
+            
             // Generate complexity-specific prompts
             const prompts = this._getComplexityPrompts(complexity);
             const enhancedPrompt = prompts.charter.replace('{requirements}', requirements);
@@ -426,6 +452,14 @@ class LLMPanelProvider {
                 const config = vscode.workspace.getConfiguration('llmPanel');
                 provider = config.get('defaultProvider') || 'openai';
             }
+            
+            // Store requirements if available
+            const requirements = projectData?.requirements || projectData?.title || '';
+            if (requirements) {
+                this._projectState.requirements = requirements;
+            }
+            this._projectState.projectComplexity = complexity;
+            await this._savePersistedState();
             
             const prompts = this._getComplexityPrompts(complexity);
             const enhancedPrompt = prompts.prd
@@ -753,6 +787,8 @@ class LLMPanelProvider {
                         currentVersion: this._projectState.currentVersion,
                         projectComplexity: this._projectState.projectComplexity,
                         workflowStep: this._projectState.workflowStep,
+                        workflowSteps: this._projectState.workflowSteps || [],
+                        requirements: this._projectState.requirements || '',
                         versionCount: this._projectState.versions.size,
                         artifactCount: this._projectState.artifacts.size
                     }
@@ -763,8 +799,52 @@ class LLMPanelProvider {
         }
     }
 
+    async _getTheme() {
+        try {
+            const config = vscode.workspace.getConfiguration('llmPanel');
+            let theme = config.get('theme', 'auto');
+            
+            // If auto, detect VS Code theme
+            if (theme === 'auto') {
+                const vscodeTheme = vscode.workspace.getConfiguration('workbench').get('colorTheme', '');
+                // Simple detection - can be enhanced
+                theme = vscodeTheme.toLowerCase().includes('light') ? 'light' : 'dark';
+            }
+            
+            if (this._view && this._view.webview) {
+                this._view.webview.postMessage({
+                    command: 'themeChanged',
+                    theme: theme
+                });
+            }
+        } catch (error) {
+            this._error('Failed to get theme:', error);
+        }
+    }
+
+    async _setTheme(theme) {
+        try {
+            const config = vscode.workspace.getConfiguration('llmPanel');
+            await config.update('theme', theme, vscode.ConfigurationTarget.Global);
+            
+            this._log(`Theme set to: ${theme}`);
+            
+            if (this._view && this._view.webview) {
+                this._view.webview.postMessage({
+                    command: 'themeChanged',
+                    theme: theme
+                });
+            }
+        } catch (error) {
+            this._error('Failed to set theme:', error);
+        }
+    }
+
     _getComplexityPrompts(complexity) {
-        const prompts = {
+        const config = vscode.workspace.getConfiguration('llmPanel');
+        
+        // Default prompts
+        const defaultPrompts = {
             lite: {
                 charter: `Create a lightweight project charter for the following requirements:
 {requirements}
@@ -874,52 +954,338 @@ Make it enterprise-ready with full technical and business specifications.`
             }
         };
         
+        // Get custom prompts from settings
+        const customCharterPrompts = {
+            lite: config.get('customCharterPromptLite', ''),
+            advanced: config.get('customCharterPromptAdvanced', ''),
+            pro: config.get('customCharterPromptPro', '')
+        };
+        
+        const customPRDPrompts = {
+            lite: config.get('customPRDPromptLite', ''),
+            advanced: config.get('customPRDPromptAdvanced', ''),
+            pro: config.get('customPRDPromptPro', '')
+        };
+        
+        // Use custom prompts if available, otherwise use defaults
+        const prompts = {
+            lite: {
+                charter: customCharterPrompts.lite || defaultPrompts.lite.charter,
+                prd: customPRDPrompts.lite || defaultPrompts.lite.prd
+            },
+            advanced: {
+                charter: customCharterPrompts.advanced || defaultPrompts.advanced.charter,
+                prd: customPRDPrompts.advanced || defaultPrompts.advanced.prd
+            },
+            pro: {
+                charter: customCharterPrompts.pro || defaultPrompts.pro.charter,
+                prd: customPRDPrompts.pro || defaultPrompts.pro.prd
+            }
+        };
+        
         return prompts[complexity] || prompts.lite;
     }
 
+    // Get workflow steps from state (dynamically generated)
     _getWorkflowSteps() {
-        return [
-            {
-                name: "Project Charter",
-                prompt: "Create a comprehensive project charter based on: {projectData}\nComplexity: {complexity}\nInclude executive summary, objectives, scope, timeline, resources, and success criteria."
-            },
-            {
-                name: "Requirements Analysis",
-                prompt: "Perform detailed requirements analysis for: {projectData}\nComplexity: {complexity}\nInclude functional and non-functional requirements, user stories, and acceptance criteria."
-            },
-            {
-                name: "Technical Architecture",
-                prompt: "Design technical architecture for: {projectData}\nComplexity: {complexity}\nInclude system design, technology stack, data flow, and integration points."
-            },
-            {
-                name: "User Experience Design",
-                prompt: "Create UX/UI specifications for: {projectData}\nComplexity: {complexity}\nInclude user personas, journey maps, wireframes, and design guidelines."
-            },
-            {
-                name: "Development Plan",
-                prompt: "Create detailed development plan for: {projectData}\nComplexity: {complexity}\nInclude sprint planning, task breakdown, dependencies, and resource allocation."
-            },
-            {
-                name: "Testing Strategy",
-                prompt: "Design comprehensive testing strategy for: {projectData}\nComplexity: {complexity}\nInclude test plans, automation strategy, and quality assurance processes."
-            },
-            {
-                name: "Deployment Plan",
-                prompt: "Create deployment and DevOps plan for: {projectData}\nComplexity: {complexity}\nInclude infrastructure, CI/CD, monitoring, and rollback procedures."
-            },
-            {
-                name: "Security Framework",
-                prompt: "Design security and compliance framework for: {projectData}\nComplexity: {complexity}\nInclude security requirements, compliance standards, and risk mitigation."
-            },
-            {
-                name: "Documentation",
-                prompt: "Create comprehensive documentation for: {projectData}\nComplexity: {complexity}\nInclude user manuals, API docs, technical guides, and maintenance procedures."
-            },
-            {
-                name: "Project Handover",
-                prompt: "Create project handover package for: {projectData}\nComplexity: {complexity}\nInclude final deliverables, knowledge transfer, and ongoing support plan."
+        // Check if we have stored workflow steps in project state
+        if (this._projectState.workflowSteps && Array.isArray(this._projectState.workflowSteps)) {
+            return this._projectState.workflowSteps;
+        }
+        // Return empty array if no steps generated yet
+        return [];
+    }
+
+    // Generate workflow steps dynamically based on complexity
+    async _generateWorkflowSteps(complexity, requirements, provider) {
+        try {
+            this._log(`Generating workflow steps for ${complexity} complexity`);
+            
+            // Store requirements and complexity
+            this._projectState.requirements = requirements;
+            this._projectState.projectComplexity = complexity;
+            
+            // Create AI prompt to generate workflow steps based on complexity
+            const stepGenerationPrompt = this._getWorkflowStepGenerationPrompt(complexity, requirements);
+            
+            const response = await this._callLLM(provider, stepGenerationPrompt);
+            
+            // Parse the AI response to extract workflow steps
+            const steps = this._parseWorkflowStepsFromResponse(response, complexity);
+            
+            // Store steps in project state
+            this._projectState.workflowSteps = steps;
+            await this._savePersistedState();
+            
+            this._view.webview.postMessage({
+                command: 'workflowStepsGenerated',
+                steps: steps,
+                complexity: complexity,
+                count: steps.length
+            });
+            
+            this._log(`Generated ${steps.length} workflow steps for ${complexity} complexity`);
+        } catch (error) {
+            this._error('Failed to generate workflow steps:', error);
+            this._view.webview.postMessage({
+                command: 'workflowStepsGenerated',
+                error: error.message,
+                steps: []
+            });
+        }
+    }
+
+    // Get prompt for generating workflow steps
+    _getWorkflowStepGenerationPrompt(complexity, requirements) {
+        const complexityGuidance = {
+            lite: 'Generate 5-7 workflow steps suitable for simple projects (3-6 months). Focus on essential phases: planning, development, testing, deployment, and documentation.',
+            advanced: 'Generate 8-12 workflow steps suitable for complex projects (6-12 months). Include detailed phases: planning, analysis, design, development, testing, security, deployment, monitoring, documentation, and handover.',
+            pro: 'Generate 12-20 workflow steps suitable for enterprise projects (12+ months). Include comprehensive phases: strategic planning, requirements analysis, architecture design, UX/UI design, development, testing, security, compliance, deployment, monitoring, documentation, training, handover, and post-project evaluation.'
+        };
+
+        return `You are an AI-SDLC (Software Development Life Cycle) expert. Generate a customized workflow step list for a project based on the following:
+
+Project Requirements:
+${requirements}
+
+Complexity Level: ${complexity}
+${complexityGuidance[complexity] || complexityGuidance.lite}
+
+Instructions:
+1. Generate workflow steps that are appropriate for ${complexity} complexity projects
+2. Each step should have a clear, descriptive name
+3. Steps should follow a logical progression from planning to completion
+4. The number of steps should match the complexity level (more steps for higher complexity)
+5. Return ONLY a JSON array in this exact format:
+[
+  {
+    "name": "Step Name",
+    "description": "Brief description of what this step involves",
+    "prompt": "Template prompt for generating this step's artifact. Use {projectData} and {complexity} as placeholders."
+  }
+]
+
+Return ONLY the JSON array, no additional text or explanation.`;
+    }
+
+    // Parse workflow steps from AI response
+    _parseWorkflowStepsFromResponse(response, complexity) {
+        try {
+            // Try to extract JSON from response
+            const jsonMatch = response.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+                const steps = JSON.parse(jsonMatch[0]);
+                if (Array.isArray(steps) && steps.length > 0) {
+                    return steps.map(step => ({
+                        name: step.name || 'Untitled Step',
+                        description: step.description || '',
+                        prompt: step.prompt || `Generate artifact for: ${step.name}\nProject Data: {projectData}\nComplexity: {complexity}`
+                    }));
+                }
             }
-        ];
+            
+            // Fallback: parse from markdown list if JSON parsing fails
+            const lines = response.split('\n');
+            const steps = [];
+            let stepNumber = 1;
+            
+            for (const line of lines) {
+                const match = line.match(/^[\d\-\*\.]+\s+(.+)$/);
+                if (match) {
+                    const name = match[1].trim();
+                    steps.push({
+                        name: name,
+                        description: '',
+                        prompt: `Generate ${name} artifact for the project.\nProject Data: {projectData}\nComplexity: {complexity}`
+                    });
+                    stepNumber++;
+                }
+            }
+            
+            // If we still have no steps, use default based on complexity
+            if (steps.length === 0) {
+                return this._getDefaultWorkflowSteps(complexity);
+            }
+            
+            return steps;
+        } catch (error) {
+            this._error('Failed to parse workflow steps:', error);
+            // Return default steps based on complexity
+            return this._getDefaultWorkflowSteps(complexity);
+        }
+    }
+
+    // Get default workflow steps as fallback
+    _getDefaultWorkflowSteps(complexity) {
+        const defaults = {
+            lite: [
+                { name: 'Project Planning', prompt: 'Create project plan for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Development', prompt: 'Create development plan for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Testing', prompt: 'Create testing strategy for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Deployment', prompt: 'Create deployment plan for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Documentation', prompt: 'Create documentation for: {projectData}\nComplexity: {complexity}' }
+            ],
+            advanced: [
+                { name: 'Project Charter', prompt: 'Create project charter for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Requirements Analysis', prompt: 'Analyze requirements for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Technical Architecture', prompt: 'Design architecture for: {projectData}\nComplexity: {complexity}' },
+                { name: 'UX Design', prompt: 'Create UX design for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Development Plan', prompt: 'Create development plan for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Testing Strategy', prompt: 'Create testing strategy for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Security Framework', prompt: 'Design security framework for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Deployment Plan', prompt: 'Create deployment plan for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Documentation', prompt: 'Create documentation for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Project Handover', prompt: 'Create handover package for: {projectData}\nComplexity: {complexity}' }
+            ],
+            pro: [
+                { name: 'Executive Summary', prompt: 'Create executive summary for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Project Charter', prompt: 'Create project charter for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Stakeholder Analysis', prompt: 'Analyze stakeholders for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Requirements Analysis', prompt: 'Analyze requirements for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Technical Architecture', prompt: 'Design architecture for: {projectData}\nComplexity: {complexity}' },
+                { name: 'UX/UI Design', prompt: 'Create UX/UI design for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Development Plan', prompt: 'Create development plan for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Testing Strategy', prompt: 'Create testing strategy for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Security Framework', prompt: 'Design security framework for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Compliance Plan', prompt: 'Create compliance plan for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Deployment Plan', prompt: 'Create deployment plan for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Monitoring Strategy', prompt: 'Create monitoring strategy for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Documentation', prompt: 'Create documentation for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Training Plan', prompt: 'Create training plan for: {projectData}\nComplexity: {complexity}' },
+                { name: 'Project Handover', prompt: 'Create handover package for: {projectData}\nComplexity: {complexity}' }
+            ]
+        };
+        
+        return defaults[complexity] || defaults.lite;
+    }
+
+    // Refine charter using AI
+    async _refineCharter(complexity, requirements, provider) {
+        try {
+            this._log('Refining charter with AI');
+            
+            // Get existing charter content if available from artifacts
+            let existingCharter = '';
+            if (this._projectState.artifacts && this._projectState.artifacts.size > 0) {
+                for (const [id, artifact] of this._projectState.artifacts.entries()) {
+                    if (artifact.name && artifact.name.toLowerCase().includes('charter')) {
+                        existingCharter = artifact.content || '';
+                        break;
+                    }
+                }
+            }
+            
+            // Also check stored requirements for context
+            const currentRequirements = this._projectState.requirements || requirements;
+            
+            const refinePrompt = `You are an AI-SDLC expert. Refine and improve the following project charter:
+
+Project Requirements:
+${requirements}
+
+Complexity Level: ${complexity}
+
+${existingCharter ? `Existing Charter Content:\n${existingCharter}\n\n` : ''}Current Project Context:
+${currentRequirements}
+
+Please refine the charter by:
+1. Improving clarity and precision of all statements
+2. Adding missing critical elements appropriate for ${complexity} complexity
+3. Enhancing structure and organization
+4. Ensuring alignment with ${complexity} complexity level requirements
+5. Making it more actionable and comprehensive
+6. Improving grammar and professional tone
+7. Adding specific deliverables and milestones
+8. Enhancing risk assessment and mitigation strategies
+
+Return the refined charter as a well-structured markdown document that is ready for use.`;
+
+            const refinedContent = await this._callLLM(provider, refinePrompt);
+            
+            // Update stored requirements with refined version
+            this._projectState.requirements = requirements;
+            await this._savePersistedState();
+            
+            this._view.webview.postMessage({
+                command: 'charterRefined',
+                content: refinedContent,
+                complexity: complexity
+            });
+            
+            this._log('Charter refined successfully');
+        } catch (error) {
+            this._error('Failed to refine charter:', error);
+            this._view.webview.postMessage({
+                command: 'charterRefined',
+                error: error.message
+            });
+        }
+    }
+
+    // Expand charter using AI
+    async _expandCharter(complexity, requirements, provider) {
+        try {
+            this._log('Expanding charter with AI');
+            
+            // Get existing charter content if available
+            let existingCharter = '';
+            if (this._projectState.artifacts && this._projectState.artifacts.size > 0) {
+                for (const [id, artifact] of this._projectState.artifacts.entries()) {
+                    if (artifact.name && artifact.name.toLowerCase().includes('charter')) {
+                        existingCharter = artifact.content || '';
+                        break;
+                    }
+                }
+            }
+            
+            const currentRequirements = this._projectState.requirements || requirements;
+            
+            const expandPrompt = `You are an AI-SDLC expert. Expand and enhance the following project charter with comprehensive additional details:
+
+Project Requirements:
+${requirements}
+
+Complexity Level: ${complexity}
+
+${existingCharter ? `Existing Charter Content:\n${existingCharter}\n\n` : ''}Current Project Context:
+${currentRequirements}
+
+Please expand the charter by:
+1. Adding detailed sub-sections for each major area with specific details
+2. Including more specific deliverables, milestones, and timelines
+3. Adding comprehensive risk assessment and mitigation strategies
+4. Including detailed resource allocation (personnel, budget, tools, technologies)
+5. Adding timeline with specific phases, dependencies, and durations
+6. Including success metrics, KPIs, and measurement frameworks
+7. Adding communication plan, governance structure, and stakeholder management
+8. Including quality assurance processes and review cycles
+9. Adding change management procedures and escalation paths
+10. Making it comprehensive and enterprise-ready for ${complexity} complexity level
+11. Adding post-project evaluation and lessons learned framework
+12. Including compliance and regulatory considerations if applicable
+
+Return the expanded charter as a detailed, well-structured markdown document that is comprehensive and ready for enterprise use.`;
+
+            const expandedContent = await this._callLLM(provider, expandPrompt);
+            
+            // Update stored requirements
+            this._projectState.requirements = requirements;
+            await this._savePersistedState();
+            
+            this._view.webview.postMessage({
+                command: 'charterExpanded',
+                content: expandedContent,
+                complexity: complexity
+            });
+            
+            this._log('Charter expanded successfully');
+        } catch (error) {
+            this._error('Failed to expand charter:', error);
+            this._view.webview.postMessage({
+                command: 'charterExpanded',
+                error: error.message
+            });
+        }
     }
 
     async _saveArtifactToWorkspace(artifactId, artifactName, content, meta = {}) {
@@ -1004,13 +1370,15 @@ ${content}
             const exportData = {
                 projectState: {
                     currentVersion: this._projectState.currentVersion,
-                    projectComplexity: this._projectState.projectComplexity,
-                    workflowStep: this._projectState.workflowStep
-                },
-                versions: Array.from(this._projectState.versions.entries()),
-                artifacts: Array.from(this._projectState.artifacts.entries()),
-                exportTimestamp: new Date().toISOString()
-            };
+                projectComplexity: this._projectState.projectComplexity,
+                workflowStep: this._projectState.workflowStep,
+                workflowSteps: this._projectState.workflowSteps || [],
+                requirements: this._projectState.requirements || ''
+            },
+            versions: Array.from(this._projectState.versions.entries()),
+            artifacts: Array.from(this._projectState.artifacts.entries()),
+            exportTimestamp: new Date().toISOString()
+        };
             
             const folders = vscode.workspace.workspaceFolders || [];
             if (!folders.length) {
@@ -1051,8 +1419,10 @@ ${content}
             
             // Restore project state
             this._projectState.currentVersion = data.projectState.currentVersion;
-            this._projectState.projectComplexity = data.projectState.projectComplexity;
-            this._projectState.workflowStep = data.projectState.workflowStep;
+            this._projectState.projectComplexity = data.projectState.projectComplexity || 'lite';
+            this._projectState.workflowStep = data.projectState.workflowStep || 0;
+            this._projectState.workflowSteps = data.projectState.workflowSteps || [];
+            this._projectState.requirements = data.projectState.requirements || '';
             
             // Restore versions
             this._projectState.versions.clear();

@@ -3,440 +3,358 @@
 
     const vscode = acquireVsCodeApi();
 
-    // DOM elements
-    const providerSelect = document.getElementById('provider');
-    const promptTextarea = document.getElementById('prompt');
-    const sendBtn = document.getElementById('sendBtn');
-    const configureBtn = document.getElementById('configureBtn');
-    const statusIndicator = document.getElementById('statusIndicator');
-    const outputArea = document.getElementById('output');
-    const filePathInput = document.getElementById('filePath');
-    const fileModeSelect = document.getElementById('fileMode');
-    const fileContentTextarea = document.getElementById('fileContent');
-    const saveFileBtn = document.getElementById('saveFileBtn');
-    const fileStatus = document.getElementById('fileStatus');
-    const showLogsBtn = document.getElementById('showLogsBtn');
-    const fileLogs = document.getElementById('fileLogs');
-    const testBtn = document.getElementById('testBtn');
-    const createPlanBtn = document.getElementById('createPlanBtn');
-    const planStatus = document.getElementById('planStatus');
-    const configurePromptBtn = document.getElementById('configurePromptBtn');
-    
-    // Project Charter System Elements
-    const projectComplexitySelect = document.getElementById('projectComplexity');
-    const projectRequirementsTextarea = document.getElementById('projectRequirements');
-    const generateCharterBtn = document.getElementById('generateCharterBtn');
-    const generatePRDBtn = document.getElementById('generatePRDBtn');
-    const viewVersionsBtn = document.getElementById('viewVersionsBtn');
-    const createVersionBtn = document.getElementById('createVersionBtn');
-    const versionHistory = document.getElementById('versionHistory');
-    const charterStatus = document.getElementById('charterStatus');
-    const generateArtifactBtns = document.querySelectorAll('.generate-artifact-btn');
-    const exportProjectBtn = document.getElementById('exportProjectBtn');
-    const importProjectBtn = document.getElementById('importProjectBtn');
-    const versionDiffViewer = document.getElementById('versionDiffViewer');
-    const diffContent = document.getElementById('diffContent');
-    
-    // Prompt for the Step elements
-    const promptStepSection = document.getElementById('promptStepSection');
-    const promptStepContent = document.getElementById('promptStepContent');
-    const clearPromptBtn = document.getElementById('clearPromptBtn');
+    // State
+    let currentTheme = 'dark';
 
-    
-    // Project Charter System Elements
-    const projectComplexitySelect = document.getElementById('projectComplexity');
-    const projectRequirementsTextarea = document.getElementById('projectRequirements');
-    const generateCharterBtn = document.getElementById('generateCharterBtn');
-    const generatePRDBtn = document.getElementById('generatePRDBtn');
-    const viewVersionsBtn = document.getElementById('viewVersionsBtn');
-    const createVersionBtn = document.getElementById('createVersionBtn');
-    const versionHistory = document.getElementById('versionHistory');
-    const charterStatus = document.getElementById('charterStatus');
-    const generateArtifactBtns = document.querySelectorAll('.generate-artifact-btn');
-    const exportProjectBtn = document.getElementById('exportProjectBtn');
-    const importProjectBtn = document.getElementById('importProjectBtn');
-    const versionDiffViewer = document.getElementById('versionDiffViewer');
-    const diffContent = document.getElementById('diffContent');
-
-    // Event listeners
-    sendBtn.addEventListener('click', handleSendPrompt);
-    configureBtn.addEventListener('click', handleConfigure);
-    providerSelect.addEventListener('change', () => checkProvider(providerSelect.value));
-    
-    if (createPlanBtn) {
-        createPlanBtn.addEventListener('click', handleCreatePlan);
+    // Initialize when DOM is ready
+    function init() {
+        console.log('Initializing LLM Control Panel...');
+        
+        // Set up event delegation for all buttons FIRST (before collapsible sections)
+        setupEventDelegation();
+        
+        // Initialize collapsible sections (after button handlers)
+        initCollapsibleSections();
+        
+        // Initialize theme
+        initTheme();
+        
+        // Initialize default states
+        setStatus('Inactive');
+        checkProvider();
+        
+        // Request initial state
+        vscode.postMessage({ command: 'getProjectState' });
+        vscode.postMessage({ command: 'getTheme' });
+        
+        console.log('LLM Control Panel initialized');
     }
 
-    if (configurePromptBtn) {
-        configurePromptBtn.addEventListener('click', () => {
-            console.log('Configure prompt button clicked');
-            vscode.postMessage({ command: 'openCustomPromptSettings' });
-        });
-    }
-
-    if (clearPromptBtn) {
-        clearPromptBtn.addEventListener('click', () => {
-            if (promptStepSection) promptStepSection.style.display = 'none';
-            if (promptStepContent) promptStepContent.innerHTML = '<div class="prompt-step-empty">No prompt generated yet. Click "Convert to Prompt" on a bullet point in a Markdown file.</div>';
-        });
-    }
-
-    // Project Charter System Event Listeners
-    if (projectComplexitySelect) {
-        projectComplexitySelect.addEventListener('change', (e) => {
-            vscode.postMessage({ 
-                command: 'setProjectComplexity', 
-                complexity: e.target.value 
-            });
-        });
-    }
-
-    if (generateCharterBtn) {
-        generateCharterBtn.addEventListener('click', () => {
-            const requirements = projectRequirementsTextarea?.value.trim();
-            const complexity = projectComplexitySelect?.value || 'lite';
-            const provider = providerSelect?.value || 'openai';
-            
-            if (!requirements) {
-                showCharterStatus('Please enter project requirements', 'error');
-                return;
+    // Event delegation - handles all button clicks
+    function setupEventDelegation() {
+        // Use a single event delegation handler for ALL buttons
+        document.addEventListener('click', function(e) {
+            // Find the button that was clicked (could be the button itself or a child element)
+            let button = e.target;
+            if (button.tagName !== 'BUTTON') {
+                button = e.target.closest('button');
             }
-            
-            showCharterStatus('Generating project charter...', 'loading');
-            vscode.postMessage({
-                command: 'generateProjectCharter',
-                complexity: complexity,
-                requirements: requirements,
-                provider: provider
-            });
-        });
-    }
+            if (!button || button.tagName !== 'BUTTON') return;
 
-    if (generatePRDBtn) {
-        generatePRDBtn.addEventListener('click', () => {
-            const requirements = projectRequirementsTextarea?.value.trim();
-            const complexity = projectComplexitySelect?.value || 'lite';
-            const provider = providerSelect?.value || 'openai';
-            
-            if (!requirements) {
-                showCharterStatus('Please enter project requirements', 'error');
-                return;
-            }
-            
-            showCharterStatus('Generating PRD...', 'loading');
-            vscode.postMessage({
-                command: 'generatePRD',
-                complexity: complexity,
-                projectData: { requirements: requirements },
-                provider: provider
-            });
-        });
-    }
+            // Stop propagation to prevent collapsible section handler from interfering
+            e.stopPropagation();
 
-    if (viewVersionsBtn) {
-        viewVersionsBtn.addEventListener('click', () => {
-            vscode.postMessage({ command: 'getVersionHistory' });
-        });
-    }
+            const id = button.id;
+            const className = button.className || '';
+            const dataStep = button.dataset.step;
 
-    if (createVersionBtn) {
-        createVersionBtn.addEventListener('click', () => {
-            const description = prompt('Enter version description:', 'Manual version');
-            if (description) {
-                vscode.postMessage({
-                    command: 'createVersion',
-                    changes: { type: 'manual', description: description },
-                    description: description
-                });
-            }
-        });
-    }
+            console.log('Button clicked:', id, className, dataStep);
 
-    // Workflow artifact generation
-    generateArtifactBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const step = parseInt(e.target.dataset.step);
-            const requirements = projectRequirementsTextarea?.value.trim();
-            const provider = providerSelect?.value || 'openai';
-            
-            if (!requirements) {
-                showCharterStatus('Please enter project requirements first', 'error');
-                return;
-            }
-            
-            showCharterStatus(`Generating artifact for step ${step + 1}...`, 'loading');
-            vscode.postMessage({
-                command: 'generateArtifacts',
-                workflowStep: step,
-                projectData: { requirements: requirements },
-                provider: provider
-            });
-        });
-    });
-
-    // Export/Import functionality
-    if (exportProjectBtn) {
-        exportProjectBtn.addEventListener('click', () => {
-            showCharterStatus('Exporting project data...', 'loading');
-            vscode.postMessage({ command: 'exportProjectData' });
-        });
-    }
-
-    if (importProjectBtn) {
-        importProjectBtn.addEventListener('click', () => {
-            // Create file input for import
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-            input.onchange = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        try {
-                            const data = JSON.parse(e.target.result);
-                            showCharterStatus('Importing project data...', 'loading');
-                            vscode.postMessage({
-                                command: 'importProjectData',
-                                data: data
-                            });
-                        } catch (error) {
-                            showCharterStatus('Invalid JSON file', 'error');
+            // Handle by ID first
+            try {
+                switch(id) {
+                    case 'themeToggle':
+                        if (typeof handleThemeToggle === 'function') {
+                            handleThemeToggle();
+                        } else {
+                            console.error('handleThemeToggle is not defined');
                         }
-                    };
-                    reader.readAsText(file);
-                }
-            };
-            input.click();
-        });
-    }
-
-    // Project Charter System Event Listeners
-    if (projectComplexitySelect) {
-        projectComplexitySelect.addEventListener('change', (e) => {
-            vscode.postMessage({ 
-                command: 'setProjectComplexity', 
-                complexity: e.target.value 
-            });
-        });
-    }
-
-    if (generateCharterBtn) {
-        generateCharterBtn.addEventListener('click', () => {
-            const requirements = projectRequirementsTextarea?.value.trim();
-            const complexity = projectComplexitySelect?.value || 'lite';
-            const provider = providerSelect?.value || 'openai';
-            
-            if (!requirements) {
-                showCharterStatus('Please enter project requirements', 'error');
-                return;
-            }
-            
-            showCharterStatus('Generating project charter...', 'loading');
-            vscode.postMessage({
-                command: 'generateProjectCharter',
-                complexity: complexity,
-                requirements: requirements,
-                provider: provider
-            });
-        });
-    }
-
-    if (generatePRDBtn) {
-        generatePRDBtn.addEventListener('click', () => {
-            const requirements = projectRequirementsTextarea?.value.trim();
-            const complexity = projectComplexitySelect?.value || 'lite';
-            const provider = providerSelect?.value || 'openai';
-            
-            if (!requirements) {
-                showCharterStatus('Please enter project requirements', 'error');
-                return;
-            }
-            
-            showCharterStatus('Generating PRD...', 'loading');
-            vscode.postMessage({
-                command: 'generatePRD',
-                complexity: complexity,
-                projectData: { requirements: requirements },
-                provider: provider
-            });
-        });
-    }
-
-    if (viewVersionsBtn) {
-        viewVersionsBtn.addEventListener('click', () => {
-            vscode.postMessage({ command: 'getVersionHistory' });
-        });
-    }
-
-    if (createVersionBtn) {
-        createVersionBtn.addEventListener('click', () => {
-            const description = prompt('Enter version description:', 'Manual version');
-            if (description) {
-                vscode.postMessage({
-                    command: 'createVersion',
-                    changes: { type: 'manual', description: description },
-                    description: description
-                });
-            }
-        });
-    }
-
-    // Workflow artifact generation
-    generateArtifactBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const step = parseInt(e.target.dataset.step);
-            const requirements = projectRequirementsTextarea?.value.trim();
-            const provider = providerSelect?.value || 'openai';
-            
-            if (!requirements) {
-                showCharterStatus('Please enter project requirements first', 'error');
-                return;
-            }
-            
-            showCharterStatus(`Generating artifact for step ${step + 1}...`, 'loading');
-            vscode.postMessage({
-                command: 'generateArtifacts',
-                workflowStep: step,
-                projectData: { requirements: requirements },
-                provider: provider
-            });
-        });
-    });
-
-    // Export/Import functionality
-    if (exportProjectBtn) {
-        exportProjectBtn.addEventListener('click', () => {
-            showCharterStatus('Exporting project data...', 'loading');
-            vscode.postMessage({ command: 'exportProjectData' });
-        });
-    }
-
-    if (importProjectBtn) {
-        importProjectBtn.addEventListener('click', () => {
-            // Create file input for import
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-            input.onchange = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        try {
-                            const data = JSON.parse(e.target.result);
-                            showCharterStatus('Importing project data...', 'loading');
-                            vscode.postMessage({
-                                command: 'importProjectData',
-                                data: data
-                            });
-                        } catch (error) {
-                            showCharterStatus('Invalid JSON file', 'error');
+                        return;
+                    case 'sendBtn':
+                        if (typeof handleSendPrompt === 'function') {
+                            handleSendPrompt();
+                        } else {
+                            console.error('handleSendPrompt is not defined');
                         }
-                    };
-                    reader.readAsText(file);
+                        return;
+                    case 'configureBtn':
+                        if (typeof handleConfigure === 'function') {
+                            handleConfigure();
+                        } else {
+                            console.error('handleConfigure is not defined');
+                        }
+                        return;
+                    case 'createPlanBtn':
+                        if (typeof handleCreatePlan === 'function') {
+                            handleCreatePlan();
+                        } else {
+                            console.error('handleCreatePlan is not defined');
+                        }
+                        return;
+                    case 'configurePromptBtn':
+                        vscode.postMessage({ command: 'openCustomPromptSettings' });
+                        return;
+                    case 'clearPrompt':
+                        if (typeof handleClearPrompt === 'function') {
+                            handleClearPrompt();
+                        } else {
+                            console.error('handleClearPrompt is not defined');
+                        }
+                        return;
+                    case 'generateCharterBtn':
+                        if (typeof handleGenerateCharter === 'function') {
+                            handleGenerateCharter();
+                        } else {
+                            console.error('handleGenerateCharter is not defined');
+                        }
+                        return;
+                    case 'generatePRDBtn':
+                        if (typeof handleGeneratePRD === 'function') {
+                            handleGeneratePRD();
+                        } else {
+                            console.error('handleGeneratePRD is not defined');
+                        }
+                        return;
+                    case 'viewVersionsBtn':
+                        vscode.postMessage({ command: 'getVersionHistory' });
+                        return;
+                    case 'createVersionBtn':
+                        if (typeof handleCreateVersion === 'function') {
+                            handleCreateVersion();
+                        } else {
+                            console.error('handleCreateVersion is not defined');
+                        }
+                        return;
+                    case 'exportProjectBtn':
+                        showCharterStatus('Exporting project data...', 'loading');
+                        vscode.postMessage({ command: 'exportProjectData' });
+                        return;
+                    case 'importProjectBtn':
+                        if (typeof handleImportProject === 'function') {
+                            handleImportProject();
+                        } else {
+                            console.error('handleImportProject is not defined');
+                        }
+                        return;
+                    case 'generateStepsBtn':
+                        if (typeof handleGenerateWorkflowSteps === 'function') {
+                            handleGenerateWorkflowSteps();
+                        } else {
+                            console.error('handleGenerateWorkflowSteps is not defined');
+                        }
+                        return;
+                    case 'refineCharterBtn':
+                        if (typeof handleRefineCharter === 'function') {
+                            handleRefineCharter();
+                        } else {
+                            console.error('handleRefineCharter is not defined');
+                        }
+                        return;
+                    case 'expandCharterBtn':
+                        if (typeof handleExpandCharter === 'function') {
+                            handleExpandCharter();
+                        } else {
+                            console.error('handleExpandCharter is not defined');
+                        }
+                        return;
+                    case 'saveFileBtn':
+                        if (typeof handleSaveFile === 'function') {
+                            handleSaveFile();
+                        } else {
+                            console.error('handleSaveFile is not defined');
+                        }
+                        return;
+                    case 'showLogsBtn':
+                        if (typeof handleShowLogs === 'function') {
+                            handleShowLogs();
+                        } else {
+                            console.error('handleShowLogs is not defined');
+                        }
+                        return;
+                    case 'testBtn':
+                        if (typeof handleTestConnection === 'function') {
+                            handleTestConnection();
+                        } else {
+                            console.error('handleTestConnection is not defined');
+                        }
+                        return;
                 }
-            };
-            input.click();
-        });
-    }
-    if (saveFileBtn) {
-        saveFileBtn.addEventListener('click', () => {
-            const filePath = filePathInput?.value.trim();
-            const mode = fileModeSelect?.value || 'create';
-            const content = fileContentTextarea?.value || '';
-            
-            console.log('Save file button clicked:', { filePath, mode, content });
-            
-            if (!filePath) {
-                setFileStatus('Please enter a file path', 'error');
-                return;
+            } catch (error) {
+                console.error('Error in button handler:', error);
+                showError('Error: ' + error.message);
             }
-            
-            setFileStatus('Saving...', 'loading');
-            
-            const message = { command: 'saveFile', filePath, content, mode };
-            console.log('Sending message to extension:', message);
-            
-            vscode.postMessage(message);
-        });
-    }
 
-    if (showLogsBtn) {
-        showLogsBtn.addEventListener('click', () => {
-            console.log('Show logs button clicked');
-            
-            if (fileLogs?.classList.contains('hidden')) {
-                // Request logs from extension
-                console.log('Requesting logs from extension');
-                vscode.postMessage({ command: 'getFileLogs' });
+            // Handle dynamically created workflow artifact buttons by class/data
+            if (className.includes('generate-artifact-btn') || dataStep !== undefined) {
+                const step = parseInt(dataStep);
+                if (!isNaN(step)) {
+                    try {
+                        handleGenerateArtifact(step);
+                    } catch (error) {
+                        console.error('Error handling workflow button:', error);
+                        showError('Error: ' + error.message);
+                    }
+                }
             }
-            
-            fileLogs?.classList.toggle('hidden');
-            showLogsBtn.textContent = fileLogs?.classList.contains('hidden') ? 'Show Logs' : 'Hide Logs';
-            
-            console.log('Logs visibility toggled, button text updated');
-        });
-    }
+        }, true); // Use capture phase to handle before other listeners
 
-    if (testBtn) {
-        testBtn.addEventListener('click', () => {
-            console.log('Test button clicked');
-            setFileStatus('Testing connection...', 'loading');
-            
-            // Send a test message to the extension
-            vscode.postMessage({ command: 'testConnection', message: 'Hello from webview!' });
-            
-            // Also test file saving with a simple test
-            setTimeout(() => {
-                console.log('Testing file save...');
-                vscode.postMessage({ 
-                    command: 'saveFile', 
-                    filePath: 'test.txt', 
-                    content: 'This is a test file created at ' + new Date().toISOString(),
-                    mode: 'create'
-                });
-            }, 1000);
-        });
-    }
-
-    // Handle creating plan document
-    function handleCreatePlan() {
-        const planPrompt = promptTextarea.value.trim();
-        const provider = providerSelect.value;
-
-        if (!planPrompt) {
-            showPlanStatus('Please enter a description for your plan in the prompt field above', 'error');
-            return;
+        // Provider change
+        const providerSelect = document.getElementById('provider');
+        if (providerSelect) {
+            providerSelect.addEventListener('change', function() {
+                checkProvider();
+            });
         }
 
-        showPlanStatus('Creating plan document...', 'loading');
-        createPlanBtn.disabled = true;
+        // Project complexity change - regenerate steps when complexity changes
+        const complexitySelect = document.getElementById('projectComplexity');
+        if (complexitySelect) {
+            complexitySelect.addEventListener('change', function(e) {
+                const complexity = e.target.value;
+                vscode.postMessage({
+                    command: 'setProjectComplexity',
+                    complexity: complexity
+                });
+                
+                // Clear existing steps and show message
+                const workflowSteps = document.getElementById('workflowSteps');
+                const stepCount = document.getElementById('workflowStepCount');
+                if (workflowSteps) {
+                    workflowSteps.innerHTML = '<div class="workflow-empty"><p>Complexity changed. Click "Generate Workflow Steps" to create a new workflow for ' + complexity + ' complexity.</p></div>';
+                }
+                if (stepCount) {
+                    stepCount.textContent = '';
+                }
+            });
+        }
+    }
 
-        // Send the current prompt to the extension for plan creation
-        vscode.postMessage({
-            command: 'createPlanWithPrompt',
-            provider: provider,
-            prompt: planPrompt
+    // Collapsible sections with auto-scaling
+    function initCollapsibleSections() {
+        // Function to expand a section properly
+        function expandSection(content) {
+            if (!content) return;
+            const header = content.previousElementSibling;
+            if (!header) return;
+            
+            header.classList.add('expanded');
+            content.style.display = 'block';
+            // Use a very large max-height to accommodate any content
+            content.style.maxHeight = '50000px';
+            content.style.padding = '16px';
+            
+            const toggle = header.querySelector('.section-toggle');
+            if (toggle) toggle.textContent = '▲';
+        }
+        
+        // Function to collapse a section
+        function collapseSection(content) {
+            if (!content) return;
+            const header = content.previousElementSibling;
+            if (!header) return;
+            
+            header.classList.remove('expanded');
+            content.style.maxHeight = '0';
+            content.style.padding = '0 16px';
+            
+            const toggle = header.querySelector('.section-toggle');
+            if (toggle) toggle.textContent = '▼';
+        }
+
+        // Use bubble phase (default) so button handler (capture) runs first
+        document.addEventListener('click', function(e) {
+            // Don't handle if clicking on a button or inside a button
+            const clickedButton = e.target.tagName === 'BUTTON' ? e.target : e.target.closest('button');
+            if (clickedButton) {
+                return; // Button handler already processed this
+            }
+            
+            const header = e.target.closest('.section-header');
+            if (!header) return;
+
+            const targetId = header.dataset.target;
+            if (!targetId) return;
+
+            const content = document.getElementById(targetId);
+            if (!content) return;
+
+            const isExpanded = header.classList.contains('expanded');
+
+            if (isExpanded) {
+                collapseSection(content);
+            } else {
+                expandSection(content);
+            }
+        });
+
+        // Initialize expanded sections
+        const expandedSections = ['providerContent', 'promptResponseContent'];
+        expandedSections.forEach(id => {
+            const content = document.getElementById(id);
+            if (content) {
+                expandSection(content);
+            }
+        });
+
+        // Observer to ensure content stays visible when changed
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList' || mutation.type === 'attributes') {
+                    const target = mutation.target;
+                    // Check if target is a section-content or within one
+                    const sectionContent = target.closest('.section-content') || 
+                                          (target.classList && target.classList.contains('section-content') ? target : null);
+                    
+                    if (sectionContent) {
+                        const header = sectionContent.previousElementSibling;
+                        if (header && header.classList.contains('expanded')) {
+                            // Ensure it stays expanded with large max-height
+                            sectionContent.style.maxHeight = '50000px';
+                            sectionContent.style.display = 'block';
+                        }
+                    }
+                }
+            });
+        });
+
+        // Observe all section contents and their children
+        document.querySelectorAll('.section-content').forEach(content => {
+            observer.observe(content, {
+                childList: true,
+                subtree: true,
+                attributes: false,
+                attributeFilter: []
+            });
         });
     }
 
-    // Handle sending prompt
+    // Theme functions
+    function initTheme() {
+        // Will be set by message from extension
+    }
+
+    function handleThemeToggle() {
+        currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.body.setAttribute('data-theme', currentTheme);
+        
+        const icon = document.querySelector('#themeToggle .theme-icon');
+        if (icon) {
+            icon.textContent = currentTheme === 'dark' ? '🌙' : '☀️';
+        }
+        
+        vscode.postMessage({
+            command: 'setTheme',
+            theme: currentTheme
+        });
+    }
+
+    // Basic handlers
     function handleSendPrompt() {
-        const provider = providerSelect.value;
-        const prompt = promptTextarea.value.trim();
+        const prompt = document.getElementById('prompt')?.value.trim();
+        const provider = document.getElementById('provider')?.value;
 
         if (!prompt) {
             showError('Please enter a prompt');
             return;
         }
 
-        // Update status
         setStatus('Active');
-        sendBtn.disabled = true;
-        outputArea.innerHTML = '<div class="loading">Processing...</div>';
+        const sendBtn = document.getElementById('sendBtn');
+        if (sendBtn) sendBtn.disabled = true;
 
-        // Send message to extension
+        const output = document.getElementById('output');
+        if (output) output.innerHTML = '<div class="loading">Processing...</div>';
+
         vscode.postMessage({
             command: 'sendPrompt',
             provider: provider,
@@ -444,362 +362,644 @@
         });
     }
 
-    // Handle configure button
     function handleConfigure() {
-        vscode.postMessage({
-            command: 'openSettings'
-        });
+        vscode.postMessage({ command: 'openSettings' });
     }
 
-    // Handle messages from extension
-    window.addEventListener('message', event => {
-        const message = event.data;
-        console.log('Received message from extension:', message);
-
-        switch (message.command) {
-            case 'extensionReady':
-                console.log('Extension is ready:', message.message);
-                setStatus('Connected');
-                break;
-            case 'testResponse':
-                console.log('Test response received:', message.message);
-                setFileStatus('Connection test successful: ' + message.message, 'success');
-                break;
-            case 'promptResponse':
-                handlePromptResponse(message.response, message.error);
-                break;
-            case 'providerStatus':
-                handleProviderStatus(message.status, message.message);
-                break;
-            case 'fileSaved':
-                if (message.ok) {
-                    setFileStatus(`Saved: ${message.path}`, 'success');
-                    console.log('File saved successfully:', message.path);
-                } else {
-                    setFileStatus(`Save failed: ${message.error}`, 'error');
-                    console.error('File save failed:', message.error);
-                }
-                break;
-            case 'logs':
-                if (fileLogs) {
-                    fileLogs.textContent = message.text || '';
-                    console.log('Logs received:', message.text ? message.text.length : 0, 'characters');
-                }
-                break;
-            case 'planCreated':
-                handlePlanCreated(message.fileName, message.content, message.error);
-                break;
-            case 'projectComplexitySet':
-                console.log('Project complexity set to:', message.complexity);
-                break;
-            case 'charterGenerated':
-                handleCharterGenerated(message.content, message.versionId, message.error);
-                break;
-            case 'prdGenerated':
-                handlePRDGenerated(message.content, message.versionId, message.error);
-                break;
-            case 'versionCreated':
-                handleVersionCreated(message.version);
-                break;
-            case 'versionHistory':
-                handleVersionHistory(message.versions, message.currentVersion);
-                break;
-            case 'versionRestored':
-                handleVersionRestored(message.version);
-                break;
-            case 'artifactGenerated':
-                handleArtifactGenerated(message.artifact, message.error);
-                break;
-            case 'projectState':
-                handleProjectState(message.state);
-                break;
-            case 'projectDataExported':
-                handleProjectDataExported(message.fileName, message.path, message.error);
-                break;
-            case 'projectDataImported':
-                handleProjectDataImported(message.success, message.error);
-                break;
-            case 'versionDiff':
-                handleVersionDiff(message.versionId, message.diff, message.version, message.error);
-                break;
-            case 'copilotPromptCreated':
-                handleCopilotPromptCreated(message.success, message.bulletPoint, message.response, message.error, message.lineNumber);
-                break;
-            case 'projectComplexitySet':
-                console.log('Project complexity set to:', message.complexity);
-                break;
-            case 'charterGenerated':
-                handleCharterGenerated(message.content, message.versionId, message.error);
-                break;
-            case 'prdGenerated':
-                handlePRDGenerated(message.content, message.versionId, message.error);
-                break;
-            case 'versionCreated':
-                handleVersionCreated(message.version);
-                break;
-            case 'versionHistory':
-                handleVersionHistory(message.versions, message.currentVersion);
-                break;
-            case 'versionRestored':
-                handleVersionRestored(message.version);
-                break;
-            case 'artifactGenerated':
-                handleArtifactGenerated(message.artifact, message.error);
-                break;
-            case 'projectState':
-                handleProjectState(message.state);
-                break;
-            case 'projectDataExported':
-                handleProjectDataExported(message.fileName, message.path, message.error);
-                break;
-            case 'projectDataImported':
-                handleProjectDataImported(message.success, message.error);
-                break;
-            case 'versionDiff':
-                handleVersionDiff(message.versionId, message.diff, message.version, message.error);
-                break;
-        }
-    });
-
-    // Handle plan creation response
-    function handlePlanCreated(fileName, content, error) {
-        createPlanBtn.disabled = false;
-        
-        if (error) {
-            showPlanStatus(`Failed to create plan: ${error}`, 'error');
-        } else {
-            showPlanStatus(`Plan document created: ${fileName}`, 'success');
-            // Also show the content in the output area
-            showResponse(`Plan document saved as: ${fileName}\n\n${content}`);
+    function checkProvider() {
+        const provider = document.getElementById('provider')?.value;
+        if (provider) {
+            vscode.postMessage({ command: 'checkProvider', provider });
         }
     }
 
-    // Handle tool execution response
-    function setFileStatus(message, type) {
-        if (!fileStatus) return;
-        fileStatus.innerHTML = `<div class="${type}">${escapeHtml(message)}</div>`;
-    }
-
-    // Handle prompt response
-    function handlePromptResponse(response, error) {
-        // Reset status
-        setStatus('Inactive');
-        sendBtn.disabled = false;
-
-        if (error) {
-            showError(error);
-        } else {
-            showResponse(response);
-        }
-    }
-
-    // Set status indicator
     function setStatus(status) {
-        if (!statusIndicator) return;
-        statusIndicator.textContent = status;
+        const indicator = document.getElementById('statusIndicator');
+        if (!indicator) return;
+
+        indicator.textContent = status;
+        indicator.className = 'status-badge';
+        
         if (status === 'Active') {
-            statusIndicator.className = 'status-active';
+            indicator.classList.add('status-active');
         } else if (status === 'Connected') {
-            statusIndicator.className = 'status-connected';
+            indicator.classList.add('status-connected');
         } else if (status === 'Error') {
-            statusIndicator.className = 'status-error';
+            indicator.classList.add('status-error');
         } else {
-            statusIndicator.className = 'status-inactive';
+            indicator.classList.add('status-inactive');
         }
     }
 
-    // Show plan status
-    function showPlanStatus(message, type = 'info') {
-        if (!planStatus) return;
-        planStatus.innerHTML = `<div class="${type}">${escapeHtml(message)}</div>`;
-        
-        // Auto-clear after 5 seconds for success messages
-        if (type === 'success') {
-            setTimeout(() => {
-                planStatus.innerHTML = '';
-            }, 5000);
-        }
-    }
+    // Plan creation
+    function handleCreatePlan() {
+        const prompt = document.getElementById('prompt')?.value.trim();
+        const provider = document.getElementById('provider')?.value;
 
-    // Show error message
-    function showError(message) {
-        if (!outputArea) return;
-        outputArea.innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
-    }
-
-    // Show response
-    function showResponse(response) {
-        if (!outputArea) return;
-        
-        // Process the response to detect and make bullet points interactive
-        const processedResponse = processResponseForBulletPoints(response);
-        outputArea.innerHTML = `<div class="response">${processedResponse}</div>`;
-        
-        // Add event listeners to the new "Use with Copilot" buttons
-        addCopilotButtonListeners();
-    }
-
-    // Process response to detect bullet points and make them interactive
-    function processResponseForBulletPoints(response) {
-        // Split the response into lines
-        const lines = response.split('\n');
-        const processedLines = [];
-        
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            
-            // Check if this line is a bullet point (starts with -, *, or •)
-            const bulletPointMatch = line.match(/^(\s*)([-*•]|\d+\.)\s+(.+)$/);
-            
-            if (bulletPointMatch) {
-                const [, indent, marker, content] = bulletPointMatch;
-                const bulletId = `bullet_${Date.now()}_${i}`;
-                
-                // Create an interactive bullet point with a "Use with Copilot" button
-                const interactiveBullet = `
-                    <div class="interactive-bullet" data-bullet-id="${bulletId}">
-                        <div class="bullet-content">
-                            ${escapeHtml(indent + marker + ' ' + content)}
-                        </div>
-                        <button class="copilot-btn" data-bullet-point="${escapeHtml(content.trim())}" data-context="${escapeHtml(getContextFromResponse(response, i))}">
-                            🤖 Use with Copilot
-                        </button>
-                    </div>
-                `;
-                processedLines.push(interactiveBullet);
-            } else {
-                // Regular line, just escape and add
-                processedLines.push(escapeHtml(line));
-            }
+        if (!prompt) {
+            showPlanStatus('Please enter a description for your plan in the prompt field above', 'error');
+            return;
         }
-        
-        return processedLines.join('\n');
-    }
-    
-    // Get context from the response for a specific bullet point
-    function getContextFromResponse(response, bulletIndex) {
-        const lines = response.split('\n');
-        const contextLines = [];
-        
-        // Get the title/header (first non-empty line)
-        for (let i = 0; i < Math.min(bulletIndex, 10); i++) {
-            const line = lines[i].trim();
-            if (line && !line.match(/^[-*•]\s/) && !line.match(/^\d+\.\s/)) {
-                contextLines.push(line);
-                if (contextLines.length >= 2) break; // Limit to 2 context lines
-            }
-        }
-        
-        return contextLines.join(' | ');
-    }
-    
-    // Add event listeners to Copilot buttons
-    function addCopilotButtonListeners() {
-        const copilotButtons = document.querySelectorAll('.copilot-btn');
-        copilotButtons.forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const bulletPoint = e.target.dataset.bulletPoint;
-                const context = e.target.dataset.context;
-                
-                if (!bulletPoint) {
-                    console.error('No bullet point data found');
-                    return;
-                }
-                
-                // Show loading state
-                const originalText = e.target.textContent;
-                e.target.textContent = '⏳ Creating prompt...';
-                e.target.disabled = true;
-                
-                // Send message to extension
-                vscode.postMessage({
-                    command: 'useWithCopilot',
-                    bulletPoint: bulletPoint,
-                    context: context
-                });
-                
-                // Reset button after a delay
-                setTimeout(() => {
-                    e.target.textContent = originalText;
-                    e.target.disabled = false;
-                }, 3000);
-            });
+
+        showPlanStatus('Creating plan document...', 'loading');
+        const btn = document.getElementById('createPlanBtn');
+        if (btn) btn.disabled = true;
+
+        vscode.postMessage({
+            command: 'createPlanWithPrompt',
+            provider: provider,
+            prompt: prompt
         });
     }
 
-    // Escape HTML to prevent XSS
+    function handleClearPrompt() {
+        const section = document.getElementById('promptStepSection');
+        const content = document.getElementById('promptStepContent');
+        
+        if (content) {
+            content.innerHTML = '<div class="prompt-step-empty">No prompt generated yet. Click "Convert to Prompt" on a bullet point in a Markdown file.</div><button id="clearPrompt" class="btn btn-secondary btn-sm">Clear</button>';
+        }
+        
+        if (section) {
+            setTimeout(() => {
+                section.style.display = 'none';
+            }, 300);
+        }
+    }
+
+    // Project Charter handlers
+    function handleGenerateCharter() {
+        const requirements = document.getElementById('projectRequirements')?.value.trim();
+        const complexity = document.getElementById('projectComplexity')?.value || 'lite';
+        const provider = document.getElementById('provider')?.value || 'openai';
+
+        if (!requirements) {
+            showCharterStatus('Please enter project requirements', 'error');
+            return;
+        }
+
+        showCharterStatus('Generating project charter...', 'loading');
+        vscode.postMessage({
+            command: 'generateProjectCharter',
+            complexity: complexity,
+            requirements: requirements,
+            provider: provider
+        });
+    }
+
+    function handleGeneratePRD() {
+        const requirements = document.getElementById('projectRequirements')?.value.trim();
+        const complexity = document.getElementById('projectComplexity')?.value || 'lite';
+        const provider = document.getElementById('provider')?.value || 'openai';
+
+        if (!requirements) {
+            showCharterStatus('Please enter project requirements', 'error');
+            return;
+        }
+
+        showCharterStatus('Generating PRD...', 'loading');
+        vscode.postMessage({
+            command: 'generatePRD',
+            complexity: complexity,
+            projectData: { requirements: requirements },
+            provider: provider
+        });
+    }
+
+    // Charter AI Assistant handlers
+    function handleGenerateWorkflowSteps() {
+        const requirements = document.getElementById('projectRequirements')?.value.trim();
+        const complexity = document.getElementById('projectComplexity')?.value || 'lite';
+        const provider = document.getElementById('provider')?.value || 'openai';
+
+        if (!requirements) {
+            showCharterAiStatus('Please enter project requirements first', 'error');
+            return;
+        }
+
+        showCharterAiStatus('Generating workflow steps based on complexity...', 'loading');
+        vscode.postMessage({
+            command: 'generateWorkflowSteps',
+            complexity: complexity,
+            requirements: requirements,
+            provider: provider
+        });
+    }
+
+    function handleRefineCharter() {
+        const requirements = document.getElementById('projectRequirements')?.value.trim();
+        const complexity = document.getElementById('projectComplexity')?.value || 'lite';
+        const provider = document.getElementById('provider')?.value || 'openai';
+
+        if (!requirements) {
+            showCharterAiStatus('Please enter project requirements first', 'error');
+            return;
+        }
+
+        showCharterAiStatus('Refining charter...', 'loading');
+        vscode.postMessage({
+            command: 'refineCharter',
+            complexity: complexity,
+            requirements: requirements,
+            provider: provider
+        });
+    }
+
+    function handleExpandCharter() {
+        const requirements = document.getElementById('projectRequirements')?.value.trim();
+        const complexity = document.getElementById('projectComplexity')?.value || 'lite';
+        const provider = document.getElementById('provider')?.value || 'openai';
+
+        if (!requirements) {
+            showCharterAiStatus('Please enter project requirements first', 'error');
+            return;
+        }
+
+        showCharterAiStatus('Expanding charter...', 'loading');
+        vscode.postMessage({
+            command: 'expandCharter',
+            complexity: complexity,
+            requirements: requirements,
+            provider: provider
+        });
+    }
+
+    function handleGenerateArtifact(step) {
+        const requirements = document.getElementById('projectRequirements')?.value.trim();
+        const provider = document.getElementById('provider')?.value || 'openai';
+
+        if (!requirements) {
+            showCharterStatus('Please enter project requirements first', 'error');
+            return;
+        }
+
+        showCharterStatus(`Generating artifact for step ${step + 1}...`, 'loading');
+        vscode.postMessage({
+            command: 'generateArtifacts',
+            workflowStep: step,
+            projectData: { requirements: requirements },
+            provider: provider
+        });
+    }
+
+    function renderWorkflowSteps(steps) {
+        const workflowSteps = document.getElementById('workflowSteps');
+        const stepCount = document.getElementById('workflowStepCount');
+        const workflowContent = document.getElementById('workflowContent');
+        const workflowHeader = workflowContent?.previousElementSibling;
+        
+        if (!workflowSteps) return;
+
+        if (!steps || steps.length === 0) {
+            workflowSteps.innerHTML = '<div class="workflow-empty"><p>No workflow steps generated. Click "Generate Workflow Steps" to create a workflow.</p></div>';
+            if (stepCount) stepCount.textContent = '';
+            return;
+        }
+
+        let html = '';
+        steps.forEach((step, index) => {
+            html += `
+                <div class="workflow-step" data-step="${index}">
+                    <span class="step-number">${index + 1}</span>
+                    <span class="step-name">${escapeHtml(step.name)}</span>
+                    <button class="btn btn-sm btn-primary generate-artifact-btn" data-step="${index}">Generate</button>
+                </div>
+            `;
+        });
+
+        workflowSteps.innerHTML = html;
+        
+        if (stepCount) {
+            stepCount.textContent = `${steps.length} step${steps.length !== 1 ? 's' : ''}`;
+        }
+
+        // Ensure workflow section is expanded and auto-scaled
+        if (workflowContent && workflowHeader) {
+            workflowHeader.classList.add('expanded');
+            workflowContent.style.display = 'block';
+            workflowContent.style.maxHeight = '50000px';
+            workflowContent.style.padding = '16px';
+            const toggle = workflowHeader.querySelector('.section-toggle');
+            if (toggle) toggle.textContent = '▲';
+        }
+    }
+
+    function showCharterAiStatus(message, type) {
+        const status = document.getElementById('charterAiStatus');
+        if (status) {
+            status.innerHTML = `<div class="${type}">${escapeHtml(message)}</div>`;
+            if (type === 'success') {
+                setTimeout(() => { status.innerHTML = ''; }, 5000);
+            }
+        }
+    }
+
+    function handleCreateVersion() {
+        const description = prompt('Enter version description:', 'Manual version');
+        if (description) {
+            vscode.postMessage({
+                command: 'createVersion',
+                changes: { type: 'manual', description: description },
+                description: description
+            });
+        }
+    }
+
+    function handleImportProject() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        showCharterStatus('Importing project data...', 'loading');
+                        vscode.postMessage({
+                            command: 'importProjectData',
+                            data: data
+                        });
+                    } catch (error) {
+                        showCharterStatus('Invalid JSON file', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+        input.click();
+    }
+
+    // File Writer handlers
+    function handleSaveFile() {
+        const filePath = document.getElementById('filePath')?.value.trim();
+        const mode = document.getElementById('fileMode')?.value || 'create';
+        const content = document.getElementById('fileContent')?.value || '';
+
+        if (!filePath) {
+            setFileStatus('Please enter a file path', 'error');
+            return;
+        }
+
+        setFileStatus('Saving...', 'loading');
+        vscode.postMessage({
+            command: 'saveFile',
+            filePath: filePath,
+            content: content,
+            mode: mode
+        });
+    }
+
+    function handleShowLogs() {
+        const logs = document.getElementById('fileLogs');
+        const btn = document.getElementById('showLogsBtn');
+        
+        if (logs && btn) {
+            if (logs.classList.contains('hidden')) {
+                vscode.postMessage({ command: 'getFileLogs' });
+            }
+            logs.classList.toggle('hidden');
+            btn.textContent = logs.classList.contains('hidden') ? 'Show Logs' : 'Hide Logs';
+        }
+    }
+
+    function handleTestConnection() {
+        setFileStatus('Testing connection...', 'loading');
+        vscode.postMessage({ command: 'testConnection', message: 'Hello from webview!' });
+    }
+
+    // Status display functions
+    function showError(message) {
+        const output = document.getElementById('output');
+        if (output) {
+            output.innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
+        }
+    }
+
+    function showResponse(response) {
+        const output = document.getElementById('output');
+        if (output) {
+            const processed = processResponseForBulletPoints(response);
+            output.innerHTML = `<div class="response">${processed}</div>`;
+            addCopilotButtonListeners();
+        }
+    }
+
+    function showPlanStatus(message, type) {
+        const status = document.getElementById('planStatus');
+        if (status) {
+            status.innerHTML = `<div class="${type}">${escapeHtml(message)}</div>`;
+            if (type === 'success') {
+                setTimeout(() => { status.innerHTML = ''; }, 5000);
+            }
+        }
+    }
+
+    function showCharterStatus(message, type) {
+        const status = document.getElementById('charterStatus');
+        if (status) {
+            status.innerHTML = `<div class="${type}">${escapeHtml(message)}</div>`;
+            if (type === 'success') {
+                setTimeout(() => { status.innerHTML = ''; }, 5000);
+            }
+        }
+    }
+
+    function setFileStatus(message, type) {
+        const status = document.getElementById('fileStatus');
+        if (status) {
+            status.innerHTML = `<div class="${type}">${escapeHtml(message)}</div>`;
+        }
+    }
+
+    // Utility functions
     function escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 
-    function handleProviderStatus(status, message) {
-        if (status === 'connected') {
-            setStatus('Connected');
-            if (message && outputArea) {
-                outputArea.innerHTML = `<div class="response">${escapeHtml(message)}</div>`;
-            }
-        } else if (status === 'error') {
-            setStatus('Error');
-            if (message && outputArea) {
-                outputArea.innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
-            }
-        }
-    }
-
-    function checkProvider(provider) {
-        vscode.postMessage({ command: 'checkProvider', provider });
-    }
-
-    // Project Charter System Handlers
-    function showCharterStatus(message, type) {
-        if (!charterStatus) return;
-        charterStatus.innerHTML = `<div class="${type}">${escapeHtml(message)}</div>`;
+    function processResponseForBulletPoints(response) {
+        const lines = response.split('\n');
+        const processed = [];
         
-        if (type === 'success') {
-            setTimeout(() => {
-                charterStatus.innerHTML = '';
-            }, 5000);
-        }
-    }
-
-    function handleCharterGenerated(content, versionId, error) {
-        if (error) {
-            showCharterStatus(`Failed to generate charter: ${error}`, 'error');
-        } else {
-            showCharterStatus(`Project charter generated successfully! Version: ${versionId}`, 'success');
-            // Show content in output area
-            if (outputArea) {
-                outputArea.innerHTML = `<div class="response">${escapeHtml(content)}</div>`;
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const match = line.match(/^(\s*)([-*•]|\d+\.)\s+(.+)$/);
+            
+            if (match) {
+                const [, indent, marker, content] = match;
+                const bulletId = `bullet_${Date.now()}_${i}`;
+                processed.push(`
+                    <div class="interactive-bullet" data-bullet-id="${bulletId}">
+                        <div class="bullet-content">${escapeHtml(indent + marker + ' ' + content)}</div>
+                        <button class="copilot-btn" data-bullet-point="${escapeHtml(content.trim())}">🤖 Use with Copilot</button>
+                    </div>
+                `);
+            } else {
+                processed.push(escapeHtml(line));
             }
         }
+        
+        return processed.join('\n');
     }
 
-    function handlePRDGenerated(content, versionId, error) {
-        if (error) {
-            showCharterStatus(`Failed to generate PRD: ${error}`, 'error');
-        } else {
-            showCharterStatus(`PRD generated successfully! Version: ${versionId}`, 'success');
-            // Show content in output area
-            if (outputArea) {
-                outputArea.innerHTML = `<div class="response">${escapeHtml(content)}</div>`;
-            }
+    function addCopilotButtonListeners() {
+        document.querySelectorAll('.copilot-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                const bulletPoint = this.dataset.bulletPoint;
+                if (bulletPoint) {
+                    this.textContent = '⏳ Creating prompt...';
+                    this.disabled = true;
+                    vscode.postMessage({
+                        command: 'useWithCopilot',
+                        bulletPoint: bulletPoint,
+                        context: ''
+                    });
+                    setTimeout(() => {
+                        this.textContent = '🤖 Use with Copilot';
+                        this.disabled = false;
+                    }, 3000);
+                }
+            });
+        });
+    }
+
+    // Message handler
+    window.addEventListener('message', function(event) {
+        const message = event.data;
+        console.log('Received message:', message.command);
+
+        switch (message.command) {
+            case 'extensionReady':
+                setStatus('Connected');
+                break;
+            case 'testResponse':
+                setFileStatus('Connection test successful: ' + message.message, 'success');
+                break;
+            case 'promptResponse':
+                setStatus('Inactive');
+                const sendBtn = document.getElementById('sendBtn');
+                if (sendBtn) sendBtn.disabled = false;
+                if (message.error) {
+                    showError(message.error);
+                } else {
+                    showResponse(message.response);
+                }
+                break;
+            case 'providerStatus':
+                if (message.status === 'connected') {
+                    setStatus('Connected');
+                } else if (message.status === 'error') {
+                    setStatus('Error');
+                }
+                break;
+            case 'fileSaved':
+                if (message.ok) {
+                    setFileStatus(`Saved: ${message.path}`, 'success');
+                } else {
+                    setFileStatus(`Save failed: ${message.error}`, 'error');
+                }
+                break;
+            case 'logs':
+                const logs = document.getElementById('fileLogs');
+                if (logs) {
+                    logs.textContent = message.text || '';
+                }
+                break;
+            case 'planCreated':
+                const createPlanBtn = document.getElementById('createPlanBtn');
+                if (createPlanBtn) createPlanBtn.disabled = false;
+                if (message.error) {
+                    showPlanStatus(`Failed: ${message.error}`, 'error');
+                } else {
+                    showPlanStatus(`Plan created: ${message.fileName}`, 'success');
+                    showResponse(`Plan document saved as: ${message.fileName}\n\n${message.content}`);
+                }
+                break;
+            case 'charterGenerated':
+                if (message.error) {
+                    showCharterStatus(`Failed: ${message.error}`, 'error');
+                } else {
+                    showCharterStatus(`Charter generated! Version: ${message.versionId}`, 'success');
+                    showResponse(message.content);
+                }
+                break;
+            case 'prdGenerated':
+                if (message.error) {
+                    showCharterStatus(`Failed: ${message.error}`, 'error');
+                } else {
+                    showCharterStatus(`PRD generated! Version: ${message.versionId}`, 'success');
+                    showResponse(message.content);
+                }
+                break;
+            case 'artifactGenerated':
+                if (message.error) {
+                    showCharterStatus(`Failed: ${message.error}`, 'error');
+                } else {
+                    showCharterStatus(`Artifact generated: ${message.artifact.name}`, 'success');
+                    showResponse(`<h4>${escapeHtml(message.artifact.name)}</h4>${escapeHtml(message.artifact.content)}`);
+                }
+                break;
+            case 'workflowStepsGenerated':
+                if (message.error) {
+                    showCharterAiStatus(`Failed to generate workflow steps: ${message.error}`, 'error');
+                } else {
+                    showCharterAiStatus(`Generated ${message.steps.length} workflow steps for ${message.complexity} complexity`, 'success');
+                    renderWorkflowSteps(message.steps);
+                    // Store steps for artifact generation
+                    window.currentWorkflowSteps = message.steps;
+                }
+                break;
+            case 'charterRefined':
+                if (message.error) {
+                    showCharterAiStatus(`Failed to refine charter: ${message.error}`, 'error');
+                } else {
+                    showCharterAiStatus('Charter refined successfully', 'success');
+                    showResponse(message.content);
+                    // Update requirements if refinement includes updates
+                    if (message.updatedRequirements) {
+                        const reqTextarea = document.getElementById('projectRequirements');
+                        if (reqTextarea) {
+                            reqTextarea.value = message.updatedRequirements;
+                        }
+                    }
+                }
+                break;
+            case 'charterExpanded':
+                if (message.error) {
+                    showCharterAiStatus(`Failed to expand charter: ${message.error}`, 'error');
+                } else {
+                    showCharterAiStatus('Charter expanded successfully', 'success');
+                    showResponse(message.content);
+                    // Update requirements if expansion includes updates
+                    if (message.updatedRequirements) {
+                        const reqTextarea = document.getElementById('projectRequirements');
+                        if (reqTextarea) {
+                            reqTextarea.value = message.updatedRequirements;
+                        }
+                    }
+                }
+                break;
+            case 'versionCreated':
+                showCharterStatus(`Version created: ${message.version.id}`, 'success');
+                break;
+            case 'versionHistory':
+                handleVersionHistory(message.versions, message.currentVersion);
+                break;
+            case 'versionRestored':
+                showCharterStatus(`Restored to version: ${message.version.id}`, 'success');
+                break;
+            case 'versionDiff':
+                handleVersionDiff(message.versionId, message.diff, message.version, message.error);
+                break;
+            case 'projectState':
+                if (message.state && message.state.projectComplexity) {
+                    const complexity = document.getElementById('projectComplexity');
+                    if (complexity) complexity.value = message.state.projectComplexity;
+                }
+                // Load workflow steps if they exist
+                if (message.state && message.state.workflowSteps) {
+                    renderWorkflowSteps(message.state.workflowSteps);
+                    window.currentWorkflowSteps = message.state.workflowSteps;
+                }
+                break;
+            case 'projectDataExported':
+                if (message.error) {
+                    showCharterStatus(`Export failed: ${message.error}`, 'error');
+                } else {
+                    showCharterStatus(`Exported: ${message.fileName}`, 'success');
+                }
+                break;
+            case 'projectDataImported':
+                if (message.error) {
+                    showCharterStatus(`Import failed: ${message.error}`, 'error');
+                } else {
+                    showCharterStatus('Project imported successfully!', 'success');
+                    vscode.postMessage({ command: 'getProjectState' });
+                }
+                break;
+            case 'copilotPromptCreated':
+                handleCopilotPromptCreated(message.success, message.bulletPoint, message.response, message.error, message.lineNumber);
+                break;
+            case 'themeChanged':
+                if (message.theme) {
+                    currentTheme = message.theme;
+                    document.body.setAttribute('data-theme', currentTheme);
+                    const icon = document.querySelector('#themeToggle .theme-icon');
+                    if (icon) {
+                        icon.textContent = currentTheme === 'dark' ? '🌙' : '☀️';
+                    }
+                }
+                break;
         }
-    }
+    });
 
-    function handleVersionCreated(version) {
-        showCharterStatus(`Version created: ${version.id} - ${version.description}`, 'success');
+    function handleCopilotPromptCreated(success, bulletPoint, response, error, lineNumber) {
+        const section = document.getElementById('promptStepSection');
+        const content = document.getElementById('promptStepContent');
+        
+        if (!section || !content) return;
+        
+        section.style.display = 'block';
+        
+        // Expand the section
+        const header = section.querySelector('.section-header');
+        if (header && !header.classList.contains('expanded')) {
+            header.classList.add('expanded');
+            content.style.maxHeight = content.scrollHeight + 'px';
+            const toggle = header.querySelector('.section-toggle');
+            if (toggle) toggle.textContent = '▲';
+        }
+        
+        const timestamp = new Date().toLocaleTimeString();
+        if (success) {
+            content.innerHTML = `
+                <div class="prompt-step-result success">
+                    <div class="prompt-step-header">
+                        <span class="prompt-step-status">✅ Success</span>
+                        <span class="prompt-step-time">${timestamp}</span>
+                    </div>
+                    <div class="prompt-step-bullet">
+                        <strong>Bullet Point:</strong> ${escapeHtml(bulletPoint)}
+                        ${lineNumber ? `<span class="prompt-step-line"> (Line ${lineNumber})</span>` : ''}
+                    </div>
+                    <div class="prompt-step-response">
+                        <strong>LLM Response:</strong>
+                        <div class="prompt-step-response-content">${escapeHtml(response || 'No response')}</div>
+                    </div>
+                </div>
+                <button id="clearPrompt" class="btn btn-secondary btn-sm">Clear</button>
+            `;
+        } else {
+            content.innerHTML = `
+                <div class="prompt-step-result error">
+                    <div class="prompt-step-header">
+                        <span class="prompt-step-status">❌ Error</span>
+                        <span class="prompt-step-time">${timestamp}</span>
+                    </div>
+                    <div class="prompt-step-bullet">
+                        <strong>Bullet Point:</strong> ${escapeHtml(bulletPoint)}
+                    </div>
+                    <div class="prompt-step-error">
+                        <strong>Error:</strong> ${escapeHtml(error || 'Unknown error')}
+                    </div>
+                </div>
+                <button id="clearPrompt" class="btn btn-secondary btn-sm">Clear</button>
+            `;
+        }
+        
+        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function handleVersionHistory(versions, currentVersion) {
-        if (!versionHistory) return;
+        const history = document.getElementById('versionHistory');
+        if (!history) return;
         
         if (versions.length === 0) {
-            versionHistory.innerHTML = '<div class="loading">No versions found</div>';
+            history.innerHTML = '<div class="loading">No versions found</div>';
+            history.classList.remove('hidden');
             return;
         }
         
@@ -815,80 +1015,35 @@
                     </div>
                     <div class="version-description">${escapeHtml(version.description)}</div>
                     <div class="version-actions">
-                        <button class="btn btn-small restore-version-btn" data-version-id="${version.id}">Restore</button>
-                        <button class="btn btn-small view-diff-btn" data-version-id="${version.id}">View Diff</button>
+                        <button class="btn btn-sm btn-secondary restore-version-btn" data-version-id="${version.id}">Restore</button>
+                        <button class="btn btn-sm btn-secondary view-diff-btn" data-version-id="${version.id}">View Diff</button>
                     </div>
                 </div>
             `;
         });
         html += '</div>';
         
-        versionHistory.innerHTML = html;
-        versionHistory.classList.remove('hidden');
+        history.innerHTML = html;
+        history.classList.remove('hidden');
         
-        // Add event listeners for restore buttons
-        versionHistory.querySelectorAll('.restore-version-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const versionId = e.target.dataset.versionId;
+        // Add event listeners for version actions
+        history.querySelectorAll('.restore-version-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
                 vscode.postMessage({
                     command: 'restoreVersion',
-                    versionId: versionId
+                    versionId: this.dataset.versionId
                 });
             });
         });
-
-        // Add event listeners for view diff buttons
-        versionHistory.querySelectorAll('.view-diff-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const versionId = e.target.dataset.versionId;
+        
+        history.querySelectorAll('.view-diff-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
                 vscode.postMessage({
                     command: 'showVersionDiff',
-                    versionId: versionId
+                    versionId: this.dataset.versionId
                 });
             });
         });
-    }
-
-    function handleVersionRestored(version) {
-        showCharterStatus(`Restored to version: ${version.id}`, 'success');
-    }
-
-    function handleArtifactGenerated(artifact, error) {
-        if (error) {
-            showCharterStatus(`Failed to generate artifact: ${error}`, 'error');
-        } else {
-            showCharterStatus(`Artifact generated: ${artifact.name}`, 'success');
-            // Show content in output area
-            if (outputArea) {
-                outputArea.innerHTML = `<div class="response"><h4>${escapeHtml(artifact.name)}</h4>${escapeHtml(artifact.content)}</div>`;
-            }
-        }
-    }
-
-    function handleProjectState(state) {
-        console.log('Project state:', state);
-        // Update UI based on current state
-        if (projectComplexitySelect && state.projectComplexity) {
-            projectComplexitySelect.value = state.projectComplexity;
-        }
-    }
-
-    function handleProjectDataExported(fileName, path, error) {
-        if (error) {
-            showCharterStatus(`Export failed: ${error}`, 'error');
-        } else {
-            showCharterStatus(`Project exported successfully: ${fileName}`, 'success');
-        }
-    }
-
-    function handleProjectDataImported(success, error) {
-        if (error) {
-            showCharterStatus(`Import failed: ${error}`, 'error');
-        } else if (success) {
-            showCharterStatus('Project imported successfully!', 'success');
-            // Refresh the UI
-            vscode.postMessage({ command: 'getProjectState' });
-        }
     }
 
     function handleVersionDiff(versionId, diff, version, error) {
@@ -896,220 +1051,48 @@
             showCharterStatus(`Failed to show diff: ${error}`, 'error');
             return;
         }
-
-        if (!versionDiffViewer || !diffContent) return;
-
-        let html = `<h6>Version ${versionId} - ${version.description}</h6>`;
         
-        if (diff.added.length > 0) {
+        const viewer = document.getElementById('versionDiffViewer');
+        const content = document.getElementById('diffContent');
+        if (!viewer || !content) return;
+        
+        let html = `<h6>Version ${versionId} - ${escapeHtml(version.description)}</h6>`;
+        
+        if (diff.added && diff.added.length > 0) {
             html += `<div class="diff-section"><h6>Added Files (${diff.added.length})</h6>`;
             diff.added.forEach(file => {
-                html += `<div class="diff-file added"><strong>+ ${file.path}</strong></div>`;
+                html += `<div class="diff-file added"><strong>+ ${escapeHtml(file.path)}</strong></div>`;
             });
             html += '</div>';
         }
-
-        if (diff.modified.length > 0) {
+        
+        if (diff.modified && diff.modified.length > 0) {
             html += `<div class="diff-section"><h6>Modified Files (${diff.modified.length})</h6>`;
             diff.modified.forEach(file => {
-                html += `<div class="diff-file modified"><strong>~ ${file.path}</strong></div>`;
+                html += `<div class="diff-file modified"><strong>~ ${escapeHtml(file.path)}</strong></div>`;
             });
             html += '</div>';
         }
-
-        if (diff.deleted.length > 0) {
+        
+        if (diff.deleted && diff.deleted.length > 0) {
             html += `<div class="diff-section"><h6>Deleted Files (${diff.deleted.length})</h6>`;
             diff.deleted.forEach(file => {
-                html += `<div class="diff-file deleted"><strong>- ${file.path}</strong></div>`;
+                html += `<div class="diff-file deleted"><strong>- ${escapeHtml(file.path)}</strong></div>`;
             });
             html += '</div>';
         }
-
-        if (diff.unchanged.length > 0) {
-            html += `<div class="diff-section"><h6>Unchanged Files (${diff.unchanged.length})</h6>`;
-            diff.unchanged.forEach(file => {
-                html += `<div class="diff-file unchanged"><strong>= ${file.path}</strong></div>`;
-            });
-            html += '</div>';
-        }
-
-        if (diff.added.length === 0 && diff.modified.length === 0 && diff.deleted.length === 0) {
+        
+        if ((!diff.added || diff.added.length === 0) && 
+            (!diff.modified || diff.modified.length === 0) && 
+            (!diff.deleted || diff.deleted.length === 0)) {
             html += '<div class="no-changes">No changes detected</div>';
         }
-
-        diffContent.innerHTML = html;
-        versionDiffViewer.classList.remove('hidden');
+        
+        content.innerHTML = html;
+        viewer.classList.remove('hidden');
     }
 
-    function handleCopilotPromptCreated(success, bulletPoint, response, error, lineNumber) {
-        if (!promptStepSection || !promptStepContent) return;
-        
-        // Show the section
-        promptStepSection.style.display = 'block';
-        
-        if (success) {
-            // Display the prompt result
-            const timestamp = new Date().toLocaleTimeString();
-            const html = `
-                <div class="prompt-step-result success">
-                    <div class="prompt-step-header">
-                        <span class="prompt-step-status">✅ Success</span>
-                        <span class="prompt-step-time">${timestamp}</span>
-                    </div>
-                    <div class="prompt-step-bullet">
-                        <strong>Bullet Point:</strong> ${escapeHtml(bulletPoint)}
-                        ${lineNumber ? `<span class="prompt-step-line"> (Line ${lineNumber})</span>` : ''}
-                    </div>
-                    <div class="prompt-step-response">
-                        <strong>LLM Response:</strong>
-                        <div class="prompt-step-response-content">${escapeHtml(response || 'No response content')}</div>
-                    </div>
-                </div>
-            `;
-            promptStepContent.innerHTML = html;
-        } else {
-            // Display the error
-            const timestamp = new Date().toLocaleTimeString();
-            const html = `
-                <div class="prompt-step-result error">
-                    <div class="prompt-step-header">
-                        <span class="prompt-step-status">❌ Error</span>
-                        <span class="prompt-step-time">${timestamp}</span>
-                    </div>
-                    <div class="prompt-step-bullet">
-                        <strong>Bullet Point:</strong> ${escapeHtml(bulletPoint)}
-                        ${lineNumber ? `<span class="prompt-step-line"> (Line ${lineNumber})</span>` : ''}
-                    </div>
-                    <div class="prompt-step-error">
-                        <strong>Error:</strong> ${escapeHtml(error || 'Unknown error')}
-                    </div>
-                </div>
-            `;
-            promptStepContent.innerHTML = html;
-        }
-        
-        // Scroll the section into view
-        promptStepSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    function renderMcp(data) {
-        if (!mcpContainer) return;
-        
-        if (!data || !Array.isArray(data.servers)) {
-            mcpContainer.innerHTML = '<div class="error">No MCP data</div>';
-            return;
-        }
-        
-        if (data.servers.length === 0) {
-            mcpContainer.innerHTML = '<div class="loading">No servers configured. Ensure .vscode/mcp.json exists.</div>';
-            return;
-        }
-        
-        const frag = document.createDocumentFragment();
-        data.servers.forEach((srv, idx) => {
-            const serverEl = document.createElement('div');
-            serverEl.className = 'mcp-server';
-
-            const header = document.createElement('div');
-            header.className = 'mcp-server-header';
-            const title = document.createElement('div');
-            title.className = 'mcp-server-title';
-            const nameSpan = document.createElement('span');
-            nameSpan.textContent = srv.name || `server-${idx + 1}`;
-            const statusSpan = document.createElement('span');
-            statusSpan.className = 'mcp-status';
-            statusSpan.textContent = srv.status === 'active' ? '🟢 active' : '🔴 failed';
-            title.appendChild(nameSpan);
-            title.appendChild(statusSpan);
-            header.appendChild(title);
-
-            serverEl.appendChild(header);
-
-            const toolsEl = document.createElement('div');
-            toolsEl.className = 'mcp-tools';
-            
-            if (srv.status !== 'active') {
-                toolsEl.innerHTML = `<div class="error">${escapeHtml(srv.message || 'Failed to connect')}</div>`;
-            } else if (!srv.tools || srv.tools.length === 0) {
-                toolsEl.innerHTML = '<div class="loading">No tools available</div>';
-            } else {
-                srv.tools.forEach((tool) => {
-                    const toolEl = document.createElement('div');
-                    toolEl.className = 'mcp-tool';
-                    
-                    const toolInfo = document.createElement('div');
-                    toolInfo.className = 'mcp-tool-info';
-                    toolInfo.innerHTML = `<strong>${escapeHtml(tool.name)}</strong>${tool.description ? ' — ' + escapeHtml(tool.description) : ''}`;
-                    
-                    // Add execute button for filesystem tools
-                    if (tool.name.includes('write') || tool.name.includes('create') || tool.name.includes('file')) {
-                        const executeBtn = document.createElement('button');
-                        executeBtn.className = 'mcp-tool-btn';
-                        executeBtn.textContent = 'Execute';
-                        executeBtn.onclick = () => executeTool(srv.name, tool.name);
-                        toolInfo.appendChild(executeBtn);
-                    }
-                    
-                    toolEl.appendChild(toolInfo);
-                    toolsEl.appendChild(toolEl);
-                });
-            }
-
-            serverEl.appendChild(toolsEl);
-            frag.appendChild(serverEl);
-        });
-        
-        mcpContainer.innerHTML = '';
-        mcpContainer.appendChild(frag);
-    }
-
-    function executeTool(serverName, toolName) {
-        // For file operations, prompt for basic parameters
-        if (toolName.includes('write') || toolName.includes('create')) {
-            const fileName = prompt('Enter file name:', 'example.md');
-            const content = prompt('Enter file content:', '# Example Content');
-            
-            if (fileName && content) {
-                vscode.postMessage({
-                    command: 'executeMcpTool',
-                    serverName: serverName,
-                    toolName: toolName,
-                    arguments: {
-                        path: fileName,
-                        content: content
-                    }
-                });
-            }
-        } else {
-            // For other tools, execute with minimal parameters
-            vscode.postMessage({
-                command: 'executeMcpTool',
-                serverName: serverName,
-                toolName: toolName,
-                arguments: {}
-            });
-        }
-    }
-
-    // Initialize
-    function init() {
-        // Focus on prompt textarea
-        if (promptTextarea) {
-            promptTextarea.focus();
-        }
-        
-        // Set initial status
-        setStatus('Inactive');
-        
-        if (providerSelect) {
-            checkProvider(providerSelect.value);
-        }
-        
-        // Load project state
-        vscode.postMessage({ command: 'getProjectState' });
-    }
-
-    // Start initialization when DOM is ready
+    // Start initialization
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {

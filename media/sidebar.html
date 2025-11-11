@@ -1,396 +1,218 @@
 <!DOCTYPE html>
-<html lang="en" class="no-js">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src %CSP_SOURCE% https: data:; script-src %CSP_SOURCE%; style-src %CSP_SOURCE%; font-src %CSP_SOURCE%; connect-src https: http: localhost:* 127.0.0.1:* ws: wss:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLM Control Panel</title>
     <link rel="stylesheet" type="text/css" href="%STYLE_URI%" media="all">
+</head>
 <body>
-    <div class="container" role="main">
-        <header class="header" role="banner">
-            <h1 id="main-heading">LLM Control Panel</h1>
-        </header>
-    <div class="container">
-        <div class="header">
-            <h2>LLM Control Panel</h2>
-        </div>
-
-        <!-- Prompt for the Step Section -->
-        <div class="section prompt-step-section" id="promptStepSection" style="display: none;">
-            <h3>📝 Prompt for the Step</h3>
-            <div id="promptStepContent" class="prompt-step-content">
-                <div class="prompt-step-empty">No prompt generated yet. Click "Convert to Prompt" on a bullet point in a Markdown file.</div>
-            </div>
-            <button id="clearPromptBtn" class="btn btn-secondary btn-small" style="margin-top: 8px;">Clear</button>
-        </div>
-
-        <section class="form-group" aria-labelledby="provider-label">
-            <label id="provider-label" for="provider">LLM Provider</label>
-            <select id="provider" class="form-control" aria-required="true" aria-describedby="provider-help">
-                <option value="openai">OpenAI</option>
-                <option value="gemini">Gemini</option>
-                <option value="ollama">Ollama</option>
-            </select>
-            <div class="status-row">
-                <span id="statusIndicator" class="status-inactive">Inactive</span>
-                <button id="configureBtn" class="btn btn-secondary">Configure</button>
-            </div>
-            <p style="font-size: 11px; margin: 8px 0 0 0; color: var(--vscode-descriptionForeground); opacity: 0.8;">
-                Note: This provider will be used for all operations in the extension.
-            </p>
-        </div>
-
-        <div class="form-group">
-            <label for="prompt">Prompt:</label>
-            <textarea id="prompt" class="form-control" rows="4" placeholder="Enter your prompt here..."></textarea>
-        </div>
-
-        <section class="form-group" aria-labelledby="prompt-label">
-            <label id="prompt-label" for="prompt">Prompt</label>
-            <textarea 
-                id="prompt" 
-                class="form-control" 
-                rows="4" 
-                placeholder="Enter your prompt here..."
-                aria-describedby="prompt-help"
-                spellcheck="true"
-                data-gramm="false"
-                data-gramm_editor="false"
-                data-enable-grammarly="false">
-            </textarea>
-        </section>
-
-        <div class="button-group" role="toolbar" aria-label="Action buttons">
-            <button id="sendBtn" class="btn btn-primary" aria-label="Send prompt to selected LLM provider">
-                <span class="btn-text">Send</span>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1 class="app-title">LLM Control Panel</h1>
+            <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+                <span class="theme-icon">🌙</span>
             </button>
-        <div class="button-group">
-            <button id="sendBtn" class="btn btn-primary">Send</button>
-        </div>
+        </header>
 
-        <section class="output" aria-labelledby="output-label">
-            <h2 id="output-label" class="visually-hidden">Response</h2>
-            <div id="output" class="output-area" role="region" aria-live="polite" aria-atomic="false"></div>
-        </section>
-
-        <section class="section" aria-labelledby="plan-creation-heading">
-            <h3 id="plan-creation-heading">Plan Creation</h3>
-            <p class="helper-text">
-                Enter your plan description in the prompt field above, then click here to create a structured document
-            </p>
-            <div class="button-group" role="toolbar" aria-label="Plan creation actions">
-                <button id="createPlanBtn" class="btn btn-primary">
-                    <span class="btn-text">Create Plan Document</span>
-                </button>
-                <button id="configurePromptBtn" class="btn btn-secondary">
-                    <span class="btn-text">Configure Prompt</span>
-                </button>
-            </div>
-            <div id="planStatus" role="status" aria-live="polite"></div>
-        </section>
-
-        <!-- Project Charter System -->
-        <section class="section project-charter-section" aria-labelledby="project-charter-heading">
-            <h3 id="project-charter-heading">
-                <span aria-hidden="true">🎯</span> Project Charter System
-            </h3>
-            
-            <div class="form-group" aria-labelledby="complexity-label">
-                <label id="complexity-label" for="projectComplexity">Project Complexity</label>
-                <select id="projectComplexity" class="form-control" aria-required="true">
-                    <option value="lite">Lite - Simple projects (3-6 months)</option>
-                    <option value="advanced">Advanced - Complex projects (6-12 months)</option>
-                    <option value="pro">Pro - Enterprise projects (12+ months)</option>
-                </select>
-            </div>
-
-            <div class="form-group" aria-labelledby="requirements-label">
-                <label id="requirements-label" for="projectRequirements">Project Requirements</label>
-                <textarea 
-                    id="projectRequirements" 
-                    class="form-control" 
-                    rows="4" 
-                    placeholder="Describe your project requirements, goals, and constraints..."
-                    aria-required="true"
-                    spellcheck="true">
-                </textarea>
-            </div>
-
-            <div class="button-group" role="toolbar" aria-label="Document generation actions">
-                <button id="generateCharterBtn" class="btn btn-primary">
-                    <span class="btn-text">Generate Project Charter</span>
-                </button>
-                <button id="generatePRDBtn" class="btn btn-secondary">
-                    <span class="btn-text">Generate PRD</span>
-                </button>
-            </div>
-
-            <section class="version-control" aria-labelledby="version-control-heading">
-                <h4 id="version-control-heading">
-                    <span aria-hidden="true">📊</span> Version Control
-                </h4>
-                <div class="button-group" role="toolbar" aria-label="Version control actions">
-                    <button id="viewVersionsBtn" class="btn btn-secondary">
-                        <span class="btn-text">View Versions</span>
-                    </button>
-                    <button id="createVersionBtn" class="btn btn-secondary">
-                        <span class="btn-text">Create Version</span>
-                    </button>
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Prompt Step Section (Hidden by default) -->
+            <section id="promptStepSection" class="section" style="display: none;">
+                <div class="section-header" data-target="promptStepContent">
+                    <span class="section-icon">📝</span>
+                    <span class="section-title">Prompt for the Step</span>
+                    <span class="section-toggle">▼</span>
                 </div>
-                <div id="versionDiffViewer" class="version-diff-viewer hidden" role="region" aria-labelledby="diff-viewer-heading">
-                    <h5 id="diff-viewer-heading">Version Diff Viewer</h5>
-                    <div id="diffContent" class="diff-content" role="document" tabindex="0"></div>
+                <div class="section-content" id="promptStepContent">
+                    <div class="prompt-step-empty">No prompt generated yet. Click "Convert to Prompt" on a bullet point in a Markdown file.</div>
+                    <button id="clearPrompt" class="btn btn-secondary btn-sm">Clear</button>
                 </div>
-                <div class="button-group" role="toolbar" aria-label="Import/export actions">
-                    <button id="exportProjectBtn" class="btn btn-secondary">
-                        <span class="btn-text">Export Project</span>
-                    </button>
-                    <button id="importProjectBtn" class="btn btn-secondary">
-                        <span class="btn-text">Import Project</span>
-                    </button>
+            </section>
+
+            <!-- LLM Provider Section -->
+            <section class="section">
+                <div class="section-header" data-target="providerContent">
+                    <span class="section-icon">⚙️</span>
+                    <span class="section-title">LLM Provider</span>
+                    <span class="section-toggle">▼</span>
                 </div>
-                <div id="versionHistory" class="version-history hidden" role="region" aria-live="polite"></div>
-            </div>
-            <div id="planStatus"></div>
-        </div>
-
-        <!-- Project Charter System -->
-        <div class="section project-charter-section">
-            <h3>🎯 Project Charter System</h3>
-            
-            <!-- Project Complexity Selection -->
-            <div class="form-group">
-                <label for="projectComplexity">Project Complexity:</label>
-                <select id="projectComplexity" class="form-control">
-                    <option value="lite">Lite - Simple projects (3-6 months)</option>
-                    <option value="advanced">Advanced - Complex projects (6-12 months)</option>
-                    <option value="pro">Pro - Enterprise projects (12+ months)</option>
-                </select>
-            </div>
-
-            <!-- Project Charter Generation -->
-            <div class="form-group">
-                <label for="projectRequirements">Project Requirements:</label>
-                <textarea id="projectRequirements" class="form-control" rows="4" placeholder="Describe your project requirements, goals, and constraints..."></textarea>
-            </div>
-
-            <div class="button-group">
-                <button id="generateCharterBtn" class="btn btn-primary">Generate Project Charter</button>
-                <button id="generatePRDBtn" class="btn btn-secondary">Generate PRD</button>
-            </div>
-
-            <!-- Version Control -->
-            <div class="version-control">
-                <h4>📊 Version Control</h4>
-                <div class="button-group">
-                    <button id="viewVersionsBtn" class="btn btn-secondary">View Versions</button>
-                    <button id="createVersionBtn" class="btn btn-secondary">Create Version</button>
+                <div class="section-content" id="providerContent">
+                    <div class="form-group">
+                        <label for="provider">Provider</label>
+                        <select id="provider" class="form-control">
+                            <option value="openai">OpenAI</option>
+                            <option value="gemini">Gemini</option>
+                            <option value="ollama">Ollama</option>
+                        </select>
+                    </div>
+                    <div class="status-row">
+                        <span id="statusIndicator" class="status-badge status-inactive">Inactive</span>
+                        <button id="configureBtn" class="btn btn-secondary btn-sm">Configure</button>
+                    </div>
+                    <p class="helper-text">Note: This provider will be used for all operations in the extension.</p>
                 </div>
-                <div id="versionDiffViewer" class="version-diff-viewer hidden">
-                    <h5>Version Diff Viewer</h5>
-                    <div id="diffContent" class="diff-content"></div>
-                </div>
-                <div class="button-group">
-                    <button id="exportProjectBtn" class="btn btn-secondary">Export Project</button>
-                    <button id="importProjectBtn" class="btn btn-secondary">Import Project</button>
-                </div>
-                <div id="versionHistory" class="version-history hidden"></div>
-            </div>
+            </section>
 
-            <!-- 10-Step Workflow -->
-            <div class="workflow-section">
-                <h4>🔄 10-Step Artifact Workflow</h4>
-                <div class="workflow-steps">
-                    <div class="workflow-step" data-step="0">
-                        <span class="step-number">1</span>
-                        <span class="step-name">Project Charter</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="0">Generate</button>
-                    </div>
-                    <div class="workflow-step" data-step="1">
-                        <span class="step-number">2</span>
-                        <span class="step-name">Requirements Analysis</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="1">Generate</button>
-                    </div>
-                    <div class="workflow-step" data-step="2">
-                        <span class="step-number">3</span>
-                        <span class="step-name">Technical Architecture</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="2">Generate</button>
-                    </div>
-                    <div class="workflow-step" data-step="3">
-                        <span class="step-number">4</span>
-                        <span class="step-name">UX Design</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="3">Generate</button>
-                    </div>
-                    <div class="workflow-step" data-step="4">
-                        <span class="step-number">5</span>
-                        <span class="step-name">Development Plan</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="4">Generate</button>
-                    </div>
-                    <div class="workflow-step" data-step="5">
-                        <span class="step-number">6</span>
-                        <span class="step-name">Testing Strategy</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="5">Generate</button>
-                    </div>
-                    <div class="workflow-step" data-step="6">
-                        <span class="step-number">7</span>
-                        <span class="step-name">Deployment Plan</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="6">Generate</button>
-                    </div>
-                    <div class="workflow-step" data-step="7">
-                        <span class="step-number">8</span>
-                        <span class="step-name">Security Framework</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="7">Generate</button>
-                    </div>
-                    <div class="workflow-step" data-step="8">
-                        <span class="step-number">9</span>
-                        <span class="step-name">Documentation</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="8">Generate</button>
-                    </div>
-                    <div class="workflow-step" data-step="9">
-                        <span class="step-number">10</span>
-                        <span class="step-name">Project Handover</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="9">Generate</button>
-                    </div>
+            <!-- Prompt & Response Section -->
+            <section class="section">
+                <div class="section-header" data-target="promptResponseContent">
+                    <span class="section-icon">💬</span>
+                    <span class="section-title">Prompt & Response</span>
+                    <span class="section-toggle">▼</span>
                 </div>
-            </div>
-
-            <div id="charterStatus"></div>
-        </div>
-
-            <section class="workflow-section" aria-labelledby="workflow-heading">
-                <h4 id="workflow-heading">
-                    <span aria-hidden="true">🔄</span> 10-Step Artifact Workflow
-                </h4>
-                <div class="workflow-steps" role="list" aria-label="Workflow steps">
-                    <div class="workflow-step" role="listitem" data-step="0">
-                        <span class="step-number" aria-hidden="true">1</span>
-                        <span class="step-name">Project Charter</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="0" aria-label="Generate Project Charter">
-                            <span class="btn-text">Generate</span>
-                        </button>
+                <div class="section-content" id="promptResponseContent">
+                    <div class="form-group">
+                        <label for="prompt">Prompt</label>
+                        <textarea id="prompt" class="form-control" rows="4" placeholder="Enter your prompt here..."></textarea>
                     </div>
-                    <div class="workflow-step" role="listitem" data-step="1">
-                        <span class="step-number" aria-hidden="true">2</span>
-                        <span class="step-name">Requirements Analysis</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="1" aria-label="Generate Requirements Analysis">
-                            <span class="btn-text">Generate</span>
-                        </button>
+                    <div class="button-group">
+                        <button id="sendBtn" class="btn btn-primary">Send</button>
                     </div>
-                    <div class="workflow-step" role="listitem" data-step="2">
-                        <span class="step-number" aria-hidden="true">3</span>
-                        <span class="step-name">Technical Architecture</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="2" aria-label="Generate Technical Architecture">
-                            <span class="btn-text">Generate</span>
-                        </button>
-                    </div>
-                    <div class="workflow-step" role="listitem" data-step="3">
-                        <span class="step-number" aria-hidden="true">4</span>
-                        <span class="step-name">UX Design</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="3" aria-label="Generate UX Design">
-                            <span class="btn-text">Generate</span>
-                        </button>
-                    </div>
-                    <div class="workflow-step" role="listitem" data-step="4">
-                        <span class="step-number" aria-hidden="true">5</span>
-                        <span class="step-name">Development Plan</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="4" aria-label="Generate Development Plan">
-                            <span class="btn-text">Generate</span>
-                        </button>
-                    </div>
-                    <div class="workflow-step" role="listitem" data-step="5">
-                        <span class="step-number" aria-hidden="true">6</span>
-                        <span class="step-name">Testing Strategy</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="5" aria-label="Generate Testing Strategy">
-                            <span class="btn-text">Generate</span>
-                        </button>
-                    </div>
-                    <div class="workflow-step" role="listitem" data-step="6">
-                        <span class="step-number" aria-hidden="true">7</span>
-                        <span class="step-name">Deployment Plan</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="6" aria-label="Generate Deployment Plan">
-                            <span class="btn-text">Generate</span>
-                        </button>
-                    </div>
-                    <div class="workflow-step" role="listitem" data-step="7">
-                        <span class="step-number" aria-hidden="true">8</span>
-                        <span class="step-name">Security Framework</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="7" aria-label="Generate Security Framework">
-                            <span class="btn-text">Generate</span>
-                        </button>
-                    </div>
-                    <div class="workflow-step" role="listitem" data-step="8">
-                        <span class="step-number" aria-hidden="true">9</span>
-                        <span class="step-name">Documentation</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="8" aria-label="Generate Documentation">
-                            <span class="btn-text">Generate</span>
-                        </button>
-                    </div>
-                    <div class="workflow-step" role="listitem" data-step="9">
-                        <span class="step-number" aria-hidden="true">10</span>
-                        <span class="step-name">Project Handover</span>
-                        <button class="btn btn-small generate-artifact-btn" data-step="9" aria-label="Generate Project Handover">
-                            <span class="btn-text">Generate</span>
-                        </button>
+                    <div class="output-section">
+                        <div id="output" class="output-area"></div>
                     </div>
                 </div>
             </section>
 
-            <div id="charterStatus" role="status" aria-live="polite"></div>
-        </section>
+            <!-- Plan Creation Section -->
+            <section class="section">
+                <div class="section-header" data-target="planCreationContent">
+                    <span class="section-icon">📋</span>
+                    <span class="section-title">Plan Creation</span>
+                    <span class="section-toggle">▼</span>
+                </div>
+                <div class="section-content" id="planCreationContent">
+                    <p class="helper-text">Enter your plan description in the prompt field above, then click here to create a structured document</p>
+                    <div class="button-group">
+                        <button id="createPlanBtn" class="btn btn-primary">Create Plan Document</button>
+                        <button id="configurePromptBtn" class="btn btn-secondary">Configure Prompt</button>
+                    </div>
+                    <div id="planStatus" class="status-message"></div>
+                </div>
+            </section>
 
-        <section class="section" aria-labelledby="file-writer-heading">
-            <h3 id="file-writer-heading">File Writer</h3>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="filePath" class="visually-hidden">File Path</label>
-                    <input 
-                        id="filePath" 
-                        class="form-control" 
-                        type="text" 
-                        placeholder="relative/or/absolute/path.md"
-                        aria-required="true"
-                    />
+            <!-- Project Charter System Section -->
+            <section class="section">
+                <div class="section-header" data-target="projectCharterContent">
+                    <span class="section-icon">🎯</span>
+                    <span class="section-title">Project Charter System</span>
+                    <span class="section-toggle">▼</span>
                 </div>
-                <div class="form-group">
-                    <label for="fileMode" class="visually-hidden">File Mode</label>
-                    <select id="fileMode" class="form-control" aria-label="Select file operation mode">
-                        <option value="create">Create</option>
-                        <option value="overwrite">Overwrite</option>
-                        <option value="append">Append</option>
-                    </select>
+                <div class="section-content" id="projectCharterContent">
+                    <div class="form-group">
+                        <label for="projectComplexity">Project Complexity</label>
+                        <select id="projectComplexity" class="form-control">
+                            <option value="lite">Lite - Simple projects (3-6 months)</option>
+                            <option value="advanced">Advanced - Complex projects (6-12 months)</option>
+                            <option value="pro">Pro - Enterprise projects (12+ months)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="projectRequirements">Project Requirements</label>
+                        <textarea id="projectRequirements" class="form-control" rows="4" placeholder="Describe your project requirements, goals, and constraints..."></textarea>
+                    </div>
+
+                    <div class="button-group">
+                        <button id="generateCharterBtn" class="btn btn-primary">Generate Project Charter</button>
+                        <button id="generatePRDBtn" class="btn btn-secondary">Generate PRD</button>
+                    </div>
+
+                    <!-- Charter AI Assistants -->
+                    <div class="button-group" style="margin-top: 12px;">
+                        <button id="generateStepsBtn" class="btn btn-secondary btn-sm">Generate Workflow Steps</button>
+                        <button id="refineCharterBtn" class="btn btn-secondary btn-sm">Refine Charter</button>
+                        <button id="expandCharterBtn" class="btn btn-secondary btn-sm">Expand Charter</button>
+                    </div>
+                    <div id="charterAiStatus" class="status-message"></div>
+
+                    <!-- Dynamic Workflow Steps Subsection -->
+                    <section class="subsection">
+                        <div class="section-header" data-target="workflowContent">
+                            <span class="section-icon">🔄</span>
+                            <span class="section-title">AI-SDLC Workflow Steps</span>
+                            <span class="section-toggle">▼</span>
+                            <span id="workflowStepCount" class="step-count-badge" style="margin-left: auto; font-size: 11px; color: var(--vscode-descriptionForeground);"></span>
+                        </div>
+                        <div class="section-content" id="workflowContent">
+                            <div id="workflowSteps" class="workflow-steps">
+                                <div class="workflow-empty">
+                                    <p>No workflow steps generated yet. Select a complexity level and click "Generate Workflow Steps" to create a customized workflow based on your project complexity.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Version Control Subsection -->
+                    <section class="subsection">
+                        <div class="section-header" data-target="versionControlContent">
+                            <span class="section-icon">📊</span>
+                            <span class="section-title">Version Control</span>
+                            <span class="section-toggle">▼</span>
+                        </div>
+                        <div class="section-content" id="versionControlContent">
+                            <div class="button-group">
+                                <button id="viewVersionsBtn" class="btn btn-secondary btn-sm">View Versions</button>
+                                <button id="createVersionBtn" class="btn btn-secondary btn-sm">Create Version</button>
+                            </div>
+                            <div id="versionDiffViewer" class="version-diff-viewer hidden">
+                                <h5>Version Diff Viewer</h5>
+                                <div id="diffContent" class="diff-content"></div>
+                            </div>
+                            <div class="button-group">
+                                <button id="exportProjectBtn" class="btn btn-secondary btn-sm">Export Project</button>
+                                <button id="importProjectBtn" class="btn btn-secondary btn-sm">Import Project</button>
+                            </div>
+                            <div id="versionHistory" class="version-history hidden"></div>
+                        </div>
+                    </section>
+
+
+                    <div id="charterStatus" class="status-message"></div>
                 </div>
-            </div>
-            <div class="form-group">
-                <label for="fileContent" class="visually-hidden">File Content</label>
-                <textarea 
-                    id="fileContent" 
-                    class="form-control" 
-                    rows="6" 
-                    placeholder="Content to write..."
-                    spellcheck="true"
-                    data-gramm="false"
-                    data-gramm_editor="false"
-                    data-enable-grammarly="false">
-                </textarea>
-            </div>
-            <div class="button-group" role="toolbar" aria-label="File actions">
-                <button id="saveFileBtn" class="btn btn-primary">
-                    <span class="btn-text">Save File</span>
-                </button>
-                <button id="showLogsBtn" class="btn btn-secondary">
-                    <span class="btn-text">Show Logs</span>
-                </button>
-                <button id="testBtn" class="btn btn-secondary">
-                    <span class="btn-text">Test Connection</span>
-                </button>
-            </div>
-            <div id="fileStatus" role="status" aria-live="polite"></div>
-            <pre id="fileLogs" class="hidden" aria-live="polite"></pre>
-        </section>
+            </section>
+
+            <!-- File Writer Section -->
+            <section class="section">
+                <div class="section-header" data-target="fileWriterContent">
+                    <span class="section-icon">📁</span>
+                    <span class="section-title">File Writer</span>
+                    <span class="section-toggle">▼</span>
+                </div>
+                <div class="section-content" id="fileWriterContent">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="filePath">File Path</label>
+                            <input id="filePath" class="form-control" type="text" placeholder="relative/or/absolute/path.md" />
+                        </div>
+                        <div class="form-group">
+                            <label for="fileMode">Mode</label>
+                            <select id="fileMode" class="form-control">
+                                <option value="create">Create</option>
+                                <option value="overwrite">Overwrite</option>
+                                <option value="append">Append</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="fileContent">File Content</label>
+                        <textarea id="fileContent" class="form-control" rows="6" placeholder="Content to write..."></textarea>
+                    </div>
+                    <div class="button-group">
+                        <button id="saveFileBtn" class="btn btn-primary">Save File</button>
+                        <button id="showLogsBtn" class="btn btn-secondary">Show Logs</button>
+                        <button id="testBtn" class="btn btn-secondary">Test Connection</button>
+                    </div>
+                    <div id="fileStatus" class="status-message"></div>
+                    <pre id="fileLogs" class="file-logs hidden"></pre>
+                </div>
+            </section>
+        </main>
     </div>
 
-    <script src="%SCRIPT_URI%" defer></script>
+    <script src="%SCRIPT_URI%"></script>
 </body>
 </html>

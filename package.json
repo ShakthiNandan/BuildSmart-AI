@@ -1,12 +1,17 @@
 {
   "name": "llm-control-panel",
   "displayName": "LLM Control Panel",
-  "description": "A VS Code extension with adaptive project charter Q&A system, AI-driven PRD generation, version control, and 10-step artifact workflow for comprehensive project management",
-  "version": "0.2.4",
+  "description": "A VS Code extension with adaptive project charter Q&A system, AI-driven PRD generation, version control, and dynamic AI-SDLC workflow. Features AI-generated workflow steps based on complexity, charter refinement/expansion, modern collapsible UI with auto-scaling, and custom prompts per complexity level.",
+  "version": "0.3.0",
   "publisher": "ShakthiNandan",
   "repository": {
     "type": "git",
     "url": "https://github.com/ShakthiNandan/BuildSmart-AI"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/ShakthiNandan/BuildSmart-AI#readme",
+  "bugs": {
+    "url": "https://github.com/ShakthiNandan/BuildSmart-AI/issues"
   },
   "engines": {
     "vscode": "^1.74.0"
@@ -23,7 +28,9 @@
     "mcp",
     "openai",
     "gemini",
-    "ollama"
+    "ollama",
+    "collapsible",
+    "ui"
   ],
   "activationEvents": [
     "onCommand:llmPanel.openPanel",
@@ -112,6 +119,42 @@
           "type": "boolean",
           "default": true,
           "description": "Enable version control for project artifacts"
+        },
+        "llmPanel.theme": {
+          "type": "string",
+          "enum": ["dark", "light", "auto"],
+          "default": "auto",
+          "description": "Theme for the LLM Control Panel sidebar (dark, light, or auto to match VS Code theme)"
+        },
+        "llmPanel.customCharterPromptLite": {
+          "type": "string",
+          "default": "",
+          "description": "Custom prompt template for Lite complexity project charter. Use {requirements} as placeholder. Leave empty to use default."
+        },
+        "llmPanel.customCharterPromptAdvanced": {
+          "type": "string",
+          "default": "",
+          "description": "Custom prompt template for Advanced complexity project charter. Use {requirements} as placeholder. Leave empty to use default."
+        },
+        "llmPanel.customCharterPromptPro": {
+          "type": "string",
+          "default": "",
+          "description": "Custom prompt template for Pro complexity project charter. Use {requirements} as placeholder. Leave empty to use default."
+        },
+        "llmPanel.customPRDPromptLite": {
+          "type": "string",
+          "default": "",
+          "description": "Custom prompt template for Lite complexity PRD. Use {projectData} and {complexity} as placeholders. Leave empty to use default."
+        },
+        "llmPanel.customPRDPromptAdvanced": {
+          "type": "string",
+          "default": "",
+          "description": "Custom prompt template for Advanced complexity PRD. Use {projectData} and {complexity} as placeholders. Leave empty to use default."
+        },
+        "llmPanel.customPRDPromptPro": {
+          "type": "string",
+          "default": "",
+          "description": "Custom prompt template for Pro complexity PRD. Use {projectData} and {complexity} as placeholders. Leave empty to use default."
         }
       }
     }
