@@ -1,8 +1,8 @@
 {
   "name": "llm-control-panel",
   "displayName": "LLM Control Panel",
-  "description": "A VS Code extension to interact with various LLM providers (OpenAI, Gemini, Ollama) and MCP servers for plan document creation",
-  "version": "0.1.7",
+  "description": "A VS Code extension with adaptive project charter Q&A system, AI-driven PRD generation, version control, and 10-step artifact workflow for comprehensive project management",
+  "version": "0.2.0",
   "publisher": "ShakthiNandan",
   "repository": {
     "type": "git",
@@ -92,6 +92,21 @@
           "type": "string",
           "default": "Create a comprehensive project plan document with:\n\n1. **Executive Summary** - Brief overview and objectives\n2. **Project Scope** - What's included and excluded\n3. **Timeline & Milestones** - Key phases with estimated durations\n4. **Detailed Tasks** - Broken down by phase with task descriptions, dependencies, resource requirements, and success criteria\n5. **Risk Assessment** - Potential challenges and mitigation strategies\n6. **Resource Requirements** - Tools, technologies, personnel needed\n7. **Success Metrics** - How to measure completion and success\n\nFormat with clear markdown headers, bullet points, and actionable items.",
           "description": "Custom prompt template for project document creation. Use {planType} and {description} as placeholders."
+        },
+        "llmPanel.defaultProvider": {
+          "type": "string",
+          "default": "openai",
+          "description": "Default LLM provider for project charter generation (openai, gemini, ollama)"
+        },
+        "llmPanel.autoSaveArtifacts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically save generated artifacts to workspace"
+        },
+        "llmPanel.versionControlEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable version control for project artifacts"
         }
       }
     }

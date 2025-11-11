@@ -21,6 +21,21 @@
     const createPlanBtn = document.getElementById('createPlanBtn');
     const planStatus = document.getElementById('planStatus');
     const configurePromptBtn = document.getElementById('configurePromptBtn');
+    
+    // Project Charter System Elements
+    const projectComplexitySelect = document.getElementById('projectComplexity');
+    const projectRequirementsTextarea = document.getElementById('projectRequirements');
+    const generateCharterBtn = document.getElementById('generateCharterBtn');
+    const generatePRDBtn = document.getElementById('generatePRDBtn');
+    const viewVersionsBtn = document.getElementById('viewVersionsBtn');
+    const createVersionBtn = document.getElementById('createVersionBtn');
+    const versionHistory = document.getElementById('versionHistory');
+    const charterStatus = document.getElementById('charterStatus');
+    const generateArtifactBtns = document.querySelectorAll('.generate-artifact-btn');
+    const exportProjectBtn = document.getElementById('exportProjectBtn');
+    const importProjectBtn = document.getElementById('importProjectBtn');
+    const versionDiffViewer = document.getElementById('versionDiffViewer');
+    const diffContent = document.getElementById('diffContent');
 
     // Event listeners
     sendBtn.addEventListener('click', handleSendPrompt);
@@ -35,6 +50,136 @@
         configurePromptBtn.addEventListener('click', () => {
             console.log('Configure prompt button clicked');
             vscode.postMessage({ command: 'openCustomPromptSettings' });
+        });
+    }
+
+    // Project Charter System Event Listeners
+    if (projectComplexitySelect) {
+        projectComplexitySelect.addEventListener('change', (e) => {
+            vscode.postMessage({ 
+                command: 'setProjectComplexity', 
+                complexity: e.target.value 
+            });
+        });
+    }
+
+    if (generateCharterBtn) {
+        generateCharterBtn.addEventListener('click', () => {
+            const requirements = projectRequirementsTextarea?.value.trim();
+            const complexity = projectComplexitySelect?.value || 'lite';
+            const provider = providerSelect?.value || 'openai';
+            
+            if (!requirements) {
+                showCharterStatus('Please enter project requirements', 'error');
+                return;
+            }
+            
+            showCharterStatus('Generating project charter...', 'loading');
+            vscode.postMessage({
+                command: 'generateProjectCharter',
+                complexity: complexity,
+                requirements: requirements,
+                provider: provider
+            });
+        });
+    }
+
+    if (generatePRDBtn) {
+        generatePRDBtn.addEventListener('click', () => {
+            const requirements = projectRequirementsTextarea?.value.trim();
+            const complexity = projectComplexitySelect?.value || 'lite';
+            const provider = providerSelect?.value || 'openai';
+            
+            if (!requirements) {
+                showCharterStatus('Please enter project requirements', 'error');
+                return;
+            }
+            
+            showCharterStatus('Generating PRD...', 'loading');
+            vscode.postMessage({
+                command: 'generatePRD',
+                complexity: complexity,
+                projectData: { requirements: requirements },
+                provider: provider
+            });
+        });
+    }
+
+    if (viewVersionsBtn) {
+        viewVersionsBtn.addEventListener('click', () => {
+            vscode.postMessage({ command: 'getVersionHistory' });
+        });
+    }
+
+    if (createVersionBtn) {
+        createVersionBtn.addEventListener('click', () => {
+            const description = prompt('Enter version description:', 'Manual version');
+            if (description) {
+                vscode.postMessage({
+                    command: 'createVersion',
+                    changes: { type: 'manual', description: description },
+                    description: description
+                });
+            }
+        });
+    }
+
+    // Workflow artifact generation
+    generateArtifactBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const step = parseInt(e.target.dataset.step);
+            const requirements = projectRequirementsTextarea?.value.trim();
+            const provider = providerSelect?.value || 'openai';
+            
+            if (!requirements) {
+                showCharterStatus('Please enter project requirements first', 'error');
+                return;
+            }
+            
+            showCharterStatus(`Generating artifact for step ${step + 1}...`, 'loading');
+            vscode.postMessage({
+                command: 'generateArtifacts',
+                workflowStep: step,
+                projectData: { requirements: requirements },
+                provider: provider
+            });
+        });
+    });
+
+    // Export/Import functionality
+    if (exportProjectBtn) {
+        exportProjectBtn.addEventListener('click', () => {
+            showCharterStatus('Exporting project data...', 'loading');
+            vscode.postMessage({ command: 'exportProjectData' });
+        });
+    }
+
+    if (importProjectBtn) {
+        importProjectBtn.addEventListener('click', () => {
+            // Create file input for import
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            showCharterStatus('Importing project data...', 'loading');
+                            vscode.postMessage({
+                                command: 'importProjectData',
+                                data: data
+                            });
+                        } catch (error) {
+                            showCharterStatus('Invalid JSON file', 'error');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
         });
     }
     if (saveFileBtn) {
@@ -186,6 +331,39 @@
             case 'planCreated':
                 handlePlanCreated(message.fileName, message.content, message.error);
                 break;
+            case 'projectComplexitySet':
+                console.log('Project complexity set to:', message.complexity);
+                break;
+            case 'charterGenerated':
+                handleCharterGenerated(message.content, message.versionId, message.error);
+                break;
+            case 'prdGenerated':
+                handlePRDGenerated(message.content, message.versionId, message.error);
+                break;
+            case 'versionCreated':
+                handleVersionCreated(message.version);
+                break;
+            case 'versionHistory':
+                handleVersionHistory(message.versions, message.currentVersion);
+                break;
+            case 'versionRestored':
+                handleVersionRestored(message.version);
+                break;
+            case 'artifactGenerated':
+                handleArtifactGenerated(message.artifact, message.error);
+                break;
+            case 'projectState':
+                handleProjectState(message.state);
+                break;
+            case 'projectDataExported':
+                handleProjectDataExported(message.fileName, message.path, message.error);
+                break;
+            case 'projectDataImported':
+                handleProjectDataImported(message.success, message.error);
+                break;
+            case 'versionDiff':
+                handleVersionDiff(message.versionId, message.diff, message.version, message.error);
+                break;
         }
     });
 
@@ -284,6 +462,192 @@
 
     function checkProvider(provider) {
         vscode.postMessage({ command: 'checkProvider', provider });
+    }
+
+    // Project Charter System Handlers
+    function showCharterStatus(message, type) {
+        if (!charterStatus) return;
+        charterStatus.innerHTML = `<div class="${type}">${escapeHtml(message)}</div>`;
+        
+        if (type === 'success') {
+            setTimeout(() => {
+                charterStatus.innerHTML = '';
+            }, 5000);
+        }
+    }
+
+    function handleCharterGenerated(content, versionId, error) {
+        if (error) {
+            showCharterStatus(`Failed to generate charter: ${error}`, 'error');
+        } else {
+            showCharterStatus(`Project charter generated successfully! Version: ${versionId}`, 'success');
+            // Show content in output area
+            if (outputArea) {
+                outputArea.innerHTML = `<div class="response">${escapeHtml(content)}</div>`;
+            }
+        }
+    }
+
+    function handlePRDGenerated(content, versionId, error) {
+        if (error) {
+            showCharterStatus(`Failed to generate PRD: ${error}`, 'error');
+        } else {
+            showCharterStatus(`PRD generated successfully! Version: ${versionId}`, 'success');
+            // Show content in output area
+            if (outputArea) {
+                outputArea.innerHTML = `<div class="response">${escapeHtml(content)}</div>`;
+            }
+        }
+    }
+
+    function handleVersionCreated(version) {
+        showCharterStatus(`Version created: ${version.id} - ${version.description}`, 'success');
+    }
+
+    function handleVersionHistory(versions, currentVersion) {
+        if (!versionHistory) return;
+        
+        if (versions.length === 0) {
+            versionHistory.innerHTML = '<div class="loading">No versions found</div>';
+            return;
+        }
+        
+        let html = '<div class="version-list">';
+        versions.forEach(version => {
+            const isCurrent = version.id === currentVersion;
+            html += `
+                <div class="version-item ${isCurrent ? 'current' : ''}">
+                    <div class="version-header">
+                        <span class="version-id">${version.id}</span>
+                        <span class="version-date">${new Date(version.timestamp).toLocaleString()}</span>
+                        ${isCurrent ? '<span class="current-badge">Current</span>' : ''}
+                    </div>
+                    <div class="version-description">${escapeHtml(version.description)}</div>
+                    <div class="version-actions">
+                        <button class="btn btn-small restore-version-btn" data-version-id="${version.id}">Restore</button>
+                        <button class="btn btn-small view-diff-btn" data-version-id="${version.id}">View Diff</button>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        versionHistory.innerHTML = html;
+        versionHistory.classList.remove('hidden');
+        
+        // Add event listeners for restore buttons
+        versionHistory.querySelectorAll('.restore-version-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const versionId = e.target.dataset.versionId;
+                vscode.postMessage({
+                    command: 'restoreVersion',
+                    versionId: versionId
+                });
+            });
+        });
+
+        // Add event listeners for view diff buttons
+        versionHistory.querySelectorAll('.view-diff-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const versionId = e.target.dataset.versionId;
+                vscode.postMessage({
+                    command: 'showVersionDiff',
+                    versionId: versionId
+                });
+            });
+        });
+    }
+
+    function handleVersionRestored(version) {
+        showCharterStatus(`Restored to version: ${version.id}`, 'success');
+    }
+
+    function handleArtifactGenerated(artifact, error) {
+        if (error) {
+            showCharterStatus(`Failed to generate artifact: ${error}`, 'error');
+        } else {
+            showCharterStatus(`Artifact generated: ${artifact.name}`, 'success');
+            // Show content in output area
+            if (outputArea) {
+                outputArea.innerHTML = `<div class="response"><h4>${escapeHtml(artifact.name)}</h4>${escapeHtml(artifact.content)}</div>`;
+            }
+        }
+    }
+
+    function handleProjectState(state) {
+        console.log('Project state:', state);
+        // Update UI based on current state
+        if (projectComplexitySelect && state.projectComplexity) {
+            projectComplexitySelect.value = state.projectComplexity;
+        }
+    }
+
+    function handleProjectDataExported(fileName, path, error) {
+        if (error) {
+            showCharterStatus(`Export failed: ${error}`, 'error');
+        } else {
+            showCharterStatus(`Project exported successfully: ${fileName}`, 'success');
+        }
+    }
+
+    function handleProjectDataImported(success, error) {
+        if (error) {
+            showCharterStatus(`Import failed: ${error}`, 'error');
+        } else if (success) {
+            showCharterStatus('Project imported successfully!', 'success');
+            // Refresh the UI
+            vscode.postMessage({ command: 'getProjectState' });
+        }
+    }
+
+    function handleVersionDiff(versionId, diff, version, error) {
+        if (error) {
+            showCharterStatus(`Failed to show diff: ${error}`, 'error');
+            return;
+        }
+
+        if (!versionDiffViewer || !diffContent) return;
+
+        let html = `<h6>Version ${versionId} - ${version.description}</h6>`;
+        
+        if (diff.added.length > 0) {
+            html += `<div class="diff-section"><h6>Added Files (${diff.added.length})</h6>`;
+            diff.added.forEach(file => {
+                html += `<div class="diff-file added"><strong>+ ${file.path}</strong></div>`;
+            });
+            html += '</div>';
+        }
+
+        if (diff.modified.length > 0) {
+            html += `<div class="diff-section"><h6>Modified Files (${diff.modified.length})</h6>`;
+            diff.modified.forEach(file => {
+                html += `<div class="diff-file modified"><strong>~ ${file.path}</strong></div>`;
+            });
+            html += '</div>';
+        }
+
+        if (diff.deleted.length > 0) {
+            html += `<div class="diff-section"><h6>Deleted Files (${diff.deleted.length})</h6>`;
+            diff.deleted.forEach(file => {
+                html += `<div class="diff-file deleted"><strong>- ${file.path}</strong></div>`;
+            });
+            html += '</div>';
+        }
+
+        if (diff.unchanged.length > 0) {
+            html += `<div class="diff-section"><h6>Unchanged Files (${diff.unchanged.length})</h6>`;
+            diff.unchanged.forEach(file => {
+                html += `<div class="diff-file unchanged"><strong>= ${file.path}</strong></div>`;
+            });
+            html += '</div>';
+        }
+
+        if (diff.added.length === 0 && diff.modified.length === 0 && diff.deleted.length === 0) {
+            html += '<div class="no-changes">No changes detected</div>';
+        }
+
+        diffContent.innerHTML = html;
+        versionDiffViewer.classList.remove('hidden');
     }
 
     function renderMcp(data) {
@@ -398,6 +762,9 @@
         if (providerSelect) {
             checkProvider(providerSelect.value);
         }
+        
+        // Load project state
+        vscode.postMessage({ command: 'getProjectState' });
     }
 
     // Start initialization when DOM is ready
